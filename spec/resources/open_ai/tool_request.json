@@ -1,0 +1,1 @@
+{"model":"<%= model %>","messages":[{"role":"user","content":"<%= prompt %>"}],"tools":<%= JSON.dump(tools) %>,"tool_choice":"auto"}

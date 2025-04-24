@@ -1,0 +1,1 @@
+{"model":"<%= model %>","messages":[{"role":"user","content":"<%= prompt %>"}],"tools":[],"tool_choice":"none"}
