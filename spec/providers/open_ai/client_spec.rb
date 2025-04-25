@@ -2,6 +2,8 @@ require 'minitest_helper'
 
 describe Rasti::AI::Providers::OpenAI::Client do
 
+  let(:api_url) { 'https://api.openai.com/v1/chat/completions' }
+
   def user_message(content)
     {
       role: Rasti::AI::Providers::OpenAI::Roles::USER,
@@ -19,7 +21,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
       api_key ||= Rasti::AI.openai_api_key
       model ||= Rasti::AI.openai_default_model
 
-      stub_request(:post, 'https://api.openai.com/v1/chat/completions')
+      stub_request(:post, api_url)
         .with(
           headers: {'Authorization' => "Bearer #{api_key}"},
           body: read_resource('open_ai/basic_request.json', model: model, prompt: question)
@@ -84,7 +86,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
   end
 
   it 'Request error' do
-    stub_request(:post, 'https://api.openai.com/v1/chat/completions')
+    stub_request(:post, api_url)
       .to_return(status: 400, body: '{"error": {"message": "Test error"}}')
 
     client = Rasti::AI::Providers::OpenAI::Client.new
@@ -128,7 +130,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
       team: 'FC Barcelona'
     }
 
-    stub_request(:post, 'https://api.openai.com/v1/chat/completions')
+    stub_request(:post, api_url)
       .with(
         headers: {'Authorization' => "Bearer #{Rasti::AI.openai_api_key}"},
         body: read_resource(
