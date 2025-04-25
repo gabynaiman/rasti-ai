@@ -2,8 +2,6 @@
 
 [![Gem Version](https://badge.fury.io/rb/rasti-ai.svg)](https://rubygems.org/gems/rasti-ai)
 [![CI](https://github.com/gabynaiman/rasti-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/gabynaiman/rasti-ai/actions/workflows/ci.yml)
-[![Coverage Status](https://coveralls.io/repos/github/gabynaiman/rasti-ai/badge.svg?branch=master)](https://coveralls.io/github/gabynaiman/rasti-ai?branch=master)
-[![Code Climate](https://codeclimate.com/github/gabynaiman/rasti-ai.svg)](https://codeclimate.com/github/gabynaiman/rasti-ai)
 
 AI for apps
 
