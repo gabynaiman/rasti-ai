@@ -25,7 +25,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency 'http', '~> 4.0'
 
   if RUBY_VERSION >= '3.0'
-    spec.add_development_dependency 'http-parser', '~> 1.2.1'
+    spec.add_development_dependency 'http-parser', '1.2.1'
   end
 
   spec.add_development_dependency 'rake', '~> 12.0'
