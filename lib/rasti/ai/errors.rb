@@ -18,6 +18,14 @@ module Rasti
 
       end
 
+      class ToolSerializationError < StandardError
+
+        def initialize(tool_class)
+          super "Tool serialization error: #{tool_class}"
+        end
+
+      end
+
     end
   end
 end
