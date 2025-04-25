@@ -24,10 +24,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency 'class_config', '~> 0.0'
   spec.add_runtime_dependency 'http', '~> 4.0'
 
-  if RUBY_VERSION >= '3.0'
-    spec.add_development_dependency 'http-parser', '1.2.1'
-  end
-
   spec.add_development_dependency 'rake', '~> 12.0'
   spec.add_development_dependency 'minitest', '~> 5.0', '< 5.11'
   spec.add_development_dependency 'minitest-colorin', '~> 0.1'
