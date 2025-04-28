@@ -23,7 +23,79 @@ Or install it yourself as:
 
 ## Usage
 
-TBD
+### Configuration
+```ruby
+Rasti::AI.configure do |config|
+  config.logger = Logger.new 'log/development.log'
+  config.openai_api_key = 'abcd12345' # Default ENV['OPENAI_API_KEY']
+  config.openai_default_model = 'gpt-4o-mini' # Default ENV['OPENAI_DEFAULT_MODEL']
+end
+```
+
+### Open AI
+
+#### Assistant
+```ruby
+assistant = Rasti::AI::Providers::OpenAI::Assistant.new
+assistant.call 'who is the best player' # => 'The beste player is Lionel Messi'
+```
+
+#### Tools
+```ruby
+class GetCurrentTime
+  def call(params={})
+    Time.now.iso8601
+  end
+end
+
+class GetCurrentWeather
+
+  def self.form
+    Rasti::Form[location: Rasti::Types::String]
+  end
+
+  def call(params={})
+    response = HTTP.get "https://api.wheater.com/?location=#{params['location']}"
+    response.body.to_s
+  end
+end
+
+tools = [
+  GetCurrentTime.new,
+  GetCurrentWeather.new
+]
+
+assistant = Rasti::AI::Providers::OpenAI::Assistant.new tools: tools
+
+assistant.call 'what time is it' # => 'The current time is 3:03 PM on April 28, 2025.'
+
+assistant.call 'what is the weather in Buenos Aires' # => 'In Buenos Aires it is 15 degrees'
+```
+
+#### Context and state
+```ruby
+state = Rasti::AI::Providers::OpenAI::AssistantState.new context: 'Act as sports journalist'
+
+assistant = Rasti::AI::Providers::OpenAI::Assistant.new state: state
+
+assistant.call 'who is the best player'
+
+state.messages
+# [
+#   {
+#     role: 'system',
+#     content: 'Act as sports journalist'
+#   },
+#   {
+#     role: 'user',
+#     content: 'who is the best player'
+#   },
+#   {
+#     role: 'assistant',
+#     content: 'The beste player is Lionel Messi'
+#   }
+# ]
+```
 
 ## Contributing
 
