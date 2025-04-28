@@ -28,21 +28,27 @@ module Rasti
 
           def post(relative_url, body)
             url = "#{BASE_URL}#{relative_url}"
-
-            headers = {'Authorization' => "Bearer #{api_key}"}
+            uri = URI(url)
 
             logger.info(self.class) { "POST #{url}" }
             logger.debug(self.class) { JSON.pretty_generate(body) }
 
-            response = HTTP.headers(headers)
-                           .post(url, json: body)
+            request = Net::HTTP::Post.new uri
+            request['Authorization'] = "Bearer #{api_key}"
+            request['Content-Type'] = 'application/json'
+            request.body = JSON.dump(body)
 
-            logger.info(self.class) { "Response #{response.status}" }
-            logger.debug(self.class) { response.body.to_s }
+            http = Net::HTTP.new uri.host, uri.port
+            http.use_ssl = uri.scheme == 'https'
 
-            raise Errors::RequestFail.new(url, body, response) unless response.status.ok?
+            response = http.request request
 
-            JSON.parse response.body.to_s
+            logger.info(self.class) { "Response #{response.code}" }
+            logger.debug(self.class) { response.body }
+
+            raise Errors::RequestFail.new(url, body, response) unless response.is_a? Net::HTTPSuccess
+
+            JSON.parse response.body
           end
 
         end

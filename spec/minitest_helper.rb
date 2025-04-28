@@ -4,6 +4,7 @@ require 'minitest/colorin'
 require 'webmock/minitest'
 require 'pry-nav'
 require 'rasti-ai'
+require 'securerandom'
 
 require_relative 'support/helpers/erb'
 require_relative 'support/helpers/resources'

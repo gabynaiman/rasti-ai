@@ -2,9 +2,10 @@ require 'multi_require'
 require 'rasti-form'
 require 'class_config'
 require 'inflecto'
-require 'http'
-require 'logger'
+require 'net/http'
+require 'uri'
 require 'json'
+require 'logger'
 
 module Rasti
   module AI

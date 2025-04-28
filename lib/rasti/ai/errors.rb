@@ -13,7 +13,7 @@ module Rasti
         end
 
         def message
-          "Request fail\nRequest: #{url}\n#{JSON.pretty_generate(body)}\nResponse: #{response.status}\n#{response.body.to_s}"
+          "Request fail\nRequest: #{url}\n#{JSON.pretty_generate(body)}\nResponse: #{response.code}\n#{response.body}"
         end
 
       end

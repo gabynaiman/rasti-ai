@@ -95,7 +95,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
       client.chat_completions messages: ['invalid message']
     end
 
-    assert_includes error.message, 'Response: 400 Bad Request'
+    assert_includes error.message, 'Response: 400'
   end
 
   it 'Tool call' do

@@ -22,7 +22,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency 'rasti-form', '~> 6.0'
   spec.add_runtime_dependency 'inflecto', '~> 0.0'
   spec.add_runtime_dependency 'class_config', '~> 0.0'
-  spec.add_runtime_dependency 'http', '~> 4.0'
 
   spec.add_development_dependency 'rake', '~> 12.0'
   spec.add_development_dependency 'minitest', '~> 5.0', '< 5.11'
