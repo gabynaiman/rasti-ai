@@ -26,6 +26,14 @@ module Rasti
 
       end
 
+      class UndefinedTool < StandardError
+
+        def initialize(tool_name)
+          super "Undefined tool #{tool_name}"
+        end
+
+      end
+
     end
   end
 end

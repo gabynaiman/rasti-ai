@@ -14,6 +14,10 @@ module Support
         erb content, variables
       end
 
+      def read_json_resource(relative_path, variables={})
+        JSON.parse read_resource(relative_path, variables)
+      end
+
     end
   end
 end
