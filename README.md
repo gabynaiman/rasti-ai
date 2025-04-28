@@ -37,7 +37,7 @@ end
 #### Assistant
 ```ruby
 assistant = Rasti::AI::Providers::OpenAI::Assistant.new
-assistant.call 'who is the best player' # => 'The beste player is Lionel Messi'
+assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
 ```
 
 #### Tools
@@ -49,7 +49,6 @@ class GetCurrentTime
 end
 
 class GetCurrentWeather
-
   def self.form
     Rasti::Form[location: Rasti::Types::String]
   end
@@ -92,7 +91,7 @@ state.messages
 #   },
 #   {
 #     role: 'assistant',
-#     content: 'The beste player is Lionel Messi'
+#     content: 'The best player is Lionel Messi'
 #   }
 # ]
 ```
