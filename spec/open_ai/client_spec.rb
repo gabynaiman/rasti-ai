@@ -1,12 +1,12 @@
 require 'minitest_helper'
 
-describe Rasti::AI::Providers::OpenAI::Client do
+describe Rasti::AI::OpenAI::Client do
 
   let(:api_url) { 'https://api.openai.com/v1/chat/completions' }
 
   def user_message(content)
     {
-      role: Rasti::AI::Providers::OpenAI::Roles::USER,
+      role: Rasti::AI::OpenAI::Roles::USER,
       content: content
     }
   end
@@ -36,7 +36,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
     it 'Default API key, model and logger' do
       stub_open_ai_chat_completions
 
-      client = Rasti::AI::Providers::OpenAI::Client.new
+      client = Rasti::AI::OpenAI::Client.new
 
       response = client.chat_completions messages: [user_message(question)]
 
@@ -48,7 +48,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
 
       stub_open_ai_chat_completions api_key: custom_api_key
 
-      client = Rasti::AI::Providers::OpenAI::Client.new api_key: custom_api_key
+      client = Rasti::AI::OpenAI::Client.new api_key: custom_api_key
 
       response = client.chat_completions messages: [user_message(question)]
 
@@ -60,7 +60,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
 
       stub_open_ai_chat_completions model: custom_model
 
-      client = Rasti::AI::Providers::OpenAI::Client.new
+      client = Rasti::AI::OpenAI::Client.new
 
       response = client.chat_completions messages: [user_message(question)],
                                          model: custom_model
@@ -74,7 +74,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
 
       stub_open_ai_chat_completions
 
-      client = Rasti::AI::Providers::OpenAI::Client.new logger: logger
+      client = Rasti::AI::OpenAI::Client.new logger: logger
 
       response = client.chat_completions messages: [user_message(question)]
 
@@ -89,7 +89,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
     stub_request(:post, api_url)
       .to_return(status: 400, body: '{"error": {"message": "Test error"}}')
 
-    client = Rasti::AI::Providers::OpenAI::Client.new
+    client = Rasti::AI::OpenAI::Client.new
 
     error = assert_raises(Rasti::AI::Errors::RequestFail) do
       client.chat_completions messages: ['invalid message']
@@ -142,7 +142,7 @@ describe Rasti::AI::Providers::OpenAI::Client do
       )
       .to_return(body: read_resource('open_ai/tool_response.json', name: tool_name, arguments: arguments))
 
-    client = Rasti::AI::Providers::OpenAI::Client.new
+    client = Rasti::AI::OpenAI::Client.new
 
     response = client.chat_completions messages: [user_message(question)],
                                        tools: [tool]

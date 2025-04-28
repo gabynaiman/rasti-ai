@@ -36,7 +36,7 @@ end
 
 #### Assistant
 ```ruby
-assistant = Rasti::AI::Providers::OpenAI::Assistant.new
+assistant = Rasti::AI::OpenAI::Assistant.new
 assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
 ```
 
@@ -64,7 +64,7 @@ tools = [
   GetCurrentWeather.new
 ]
 
-assistant = Rasti::AI::Providers::OpenAI::Assistant.new tools: tools
+assistant = Rasti::AI::OpenAI::Assistant.new tools: tools
 
 assistant.call 'what time is it' # => 'The current time is 3:03 PM on April 28, 2025.'
 
@@ -73,9 +73,9 @@ assistant.call 'what is the weather in Buenos Aires' # => 'In Buenos Aires it is
 
 #### Context and state
 ```ruby
-state = Rasti::AI::Providers::OpenAI::AssistantState.new context: 'Act as sports journalist'
+state = Rasti::AI::OpenAI::AssistantState.new context: 'Act as sports journalist'
 
-assistant = Rasti::AI::Providers::OpenAI::Assistant.new state: state
+assistant = Rasti::AI::OpenAI::Assistant.new state: state
 
 assistant.call 'who is the best player'
 

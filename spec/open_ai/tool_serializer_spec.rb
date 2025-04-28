@@ -1,8 +1,8 @@
 require 'minitest_helper'
 
-describe Rasti::AI::Providers::OpenAI::ToolSerializer do
+describe Rasti::AI::OpenAI::ToolSerializer do
 
-  let(:serializer) { Rasti::AI::Providers::OpenAI::ToolSerializer }
+  let(:serializer) { Rasti::AI::OpenAI::ToolSerializer }
 
   def build_tool_class(form_class=nil)
     tool_class = Minitest::Mock.new

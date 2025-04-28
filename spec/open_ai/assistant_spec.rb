@@ -1,6 +1,6 @@
 require 'minitest_helper'
 
-describe Rasti::AI::Providers::OpenAI::Assistant do
+describe Rasti::AI::OpenAI::Assistant do
 
   let(:api_url) { 'https://api.openai.com/v1/chat/completions' }
 
@@ -20,7 +20,7 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
   it 'Default' do
     stub_open_ai_chat_completions question: question, answer: answer
 
-    assistant = Rasti::AI::Providers::OpenAI::Assistant.new
+    assistant = Rasti::AI::OpenAI::Assistant.new
 
     response = assistant.call question
 
@@ -36,7 +36,7 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
           tools: [],
           messages: [
             {
-              role: Rasti::AI::Providers::OpenAI::Roles::USER,
+              role: Rasti::AI::OpenAI::Roles::USER,
               content: question
             }
           ]
@@ -48,7 +48,7 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
       client = Minitest::Mock.new
       client.expect :chat_completions, client_response, client_arguments
 
-      assistant = Rasti::AI::Providers::OpenAI::Assistant.new client: client
+      assistant = Rasti::AI::OpenAI::Assistant.new client: client
 
       response = assistant.call question
 
@@ -59,17 +59,17 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
 
     it 'State' do
       context = 'Act as sports journalist'
-      state = Rasti::AI::Providers::OpenAI::AssistantState.new context: context
+      state = Rasti::AI::OpenAI::AssistantState.new context: context
 
       request_body = {
         model: Rasti::AI.openai_default_model,
         messages: [
           {
-            role: Rasti::AI::Providers::OpenAI::Roles::SYSTEM,
+            role: Rasti::AI::OpenAI::Roles::SYSTEM,
             content: context
           },
           {
-            role: Rasti::AI::Providers::OpenAI::Roles::USER,
+            role: Rasti::AI::OpenAI::Roles::USER,
             content: question
           }
         ],
@@ -81,12 +81,12 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
         .with(body: JSON.dump(request_body))
         .to_return(body: read_resource('open_ai/basic_response.json', content: answer))
 
-      assistant = Rasti::AI::Providers::OpenAI::Assistant.new state: state
+      assistant = Rasti::AI::OpenAI::Assistant.new state: state
 
       response = assistant.call question
 
       expected_assistant_message = {
-        role: Rasti::AI::Providers::OpenAI::Roles::ASSISTANT,
+        role: Rasti::AI::OpenAI::Roles::ASSISTANT,
         content: answer
       }
 
@@ -100,7 +100,7 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
 
       stub_open_ai_chat_completions question: question, answer: answer, model: model
 
-      assistant = Rasti::AI::Providers::OpenAI::Assistant.new model: model
+      assistant = Rasti::AI::OpenAI::Assistant.new model: model
 
       response = assistant.call question
 
@@ -150,24 +150,24 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
         last_message = params[:messages].last
         last_message[:role] == role &&
           last_message[:content] == content &&
-          params[:tools] == tools.map { |t| Rasti::AI::Providers::OpenAI::ToolSerializer.serialize t.class }
+          params[:tools] == tools.map { |t| Rasti::AI::OpenAI::ToolSerializer.serialize t.class }
       end
     end
 
     it 'Call funcion' do
       tool = GoalsByPlayer.new
 
-      stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::USER,
+      stub_client_request role: Rasti::AI::OpenAI::Roles::USER,
                           content: question,
                           tools: [tool],
                           response: tool_response
 
-      stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::TOOL,
+      stub_client_request role: Rasti::AI::OpenAI::Roles::TOOL,
                           content: tool_result,
                           tools: [tool],
                           response: basic_response(answer)
 
-      assistant = Rasti::AI::Providers::OpenAI::Assistant.new client: client, tools: [tool]
+      assistant = Rasti::AI::OpenAI::Assistant.new client: client, tools: [tool]
 
       response = assistant.call question
 
@@ -182,17 +182,17 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
         raise 'Broken tool'
       end
 
-      stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::USER,
+      stub_client_request role: Rasti::AI::OpenAI::Roles::USER,
                           content: question,
                           tools: [tool],
                           response: tool_response
 
-      stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::TOOL,
+      stub_client_request role: Rasti::AI::OpenAI::Roles::TOOL,
                           content: 'Error: Broken tool',
                           tools: [tool],
                           response: basic_response(error_message)
 
-      assistant = Rasti::AI::Providers::OpenAI::Assistant.new client: client, tools: [tool]
+      assistant = Rasti::AI::OpenAI::Assistant.new client: client, tools: [tool]
 
       response = assistant.call question
 
@@ -202,15 +202,15 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
     end
 
     it 'Undefined tool' do
-      stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::USER,
+      stub_client_request role: Rasti::AI::OpenAI::Roles::USER,
                           content: question,
                           response: tool_response
 
-      stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::TOOL,
+      stub_client_request role: Rasti::AI::OpenAI::Roles::TOOL,
                           content: 'Error: Undefined tool goals_by_player',
                           response: basic_response(error_message)
 
-      assistant = Rasti::AI::Providers::OpenAI::Assistant.new client: client, tools: []
+      assistant = Rasti::AI::OpenAI::Assistant.new client: client, tools: []
 
       response = assistant.call question
 
@@ -228,15 +228,15 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
         mock.call(*args)
       end
 
-      assistant = Rasti::AI::Providers::OpenAI::Assistant.new client: client, tools: [tool]
+      assistant = Rasti::AI::OpenAI::Assistant.new client: client, tools: [tool]
 
       5.times do
-        stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::USER,
+        stub_client_request role: Rasti::AI::OpenAI::Roles::USER,
                             content: question,
                             tools: [tool],
                             response: tool_response
 
-        stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::TOOL,
+        stub_client_request role: Rasti::AI::OpenAI::Roles::TOOL,
                             content: tool_result,
                             tools: [tool],
                             response: basic_response(answer)
@@ -255,17 +255,17 @@ describe Rasti::AI::Providers::OpenAI::Assistant do
 
       tool = GoalsByPlayer.new
 
-      stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::USER,
+      stub_client_request role: Rasti::AI::OpenAI::Roles::USER,
                           content: question,
                           tools: [tool],
                           response: tool_response
 
-      stub_client_request role: Rasti::AI::Providers::OpenAI::Roles::TOOL,
+      stub_client_request role: Rasti::AI::OpenAI::Roles::TOOL,
                           content: tool_result,
                           tools: [tool],
                           response: basic_response(answer)
 
-      assistant = Rasti::AI::Providers::OpenAI::Assistant.new client: client, tools: [tool], logger: logger
+      assistant = Rasti::AI::OpenAI::Assistant.new client: client, tools: [tool], logger: logger
 
       response = assistant.call question
 
