@@ -39,7 +39,8 @@ describe Rasti::AI::OpenAI::Assistant do
               role: Rasti::AI::OpenAI::Roles::USER,
               content: question
             }
-          ]
+          ],
+          response_format: nil
         }
       ]
 

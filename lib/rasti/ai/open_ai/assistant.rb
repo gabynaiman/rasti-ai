@@ -5,8 +5,9 @@ module Rasti
 
         attr_reader :state
 
-        def initialize(client:nil, state:nil, model:nil, tools:[], logger:nil)
+        def initialize(client:nil, json_schema:nil, state:nil, model:nil, tools:[], logger:nil)
           @client = client || Client.new
+          @json_schema = json_schema
           @state = state || AssistantState.new
           @model = model
           @tools = {}
@@ -29,7 +30,8 @@ module Rasti
           loop do
             response = client.chat_completions messages: messages,
                                                model: model,
-                                               tools: serialized_tools
+                                               tools: serialized_tools,
+                                               response_format: response_format
 
             choice = response['choices'][0]['message']
 
@@ -64,7 +66,7 @@ module Rasti
 
         private
 
-        attr_reader :client, :model, :tools, :serialized_tools, :logger
+        attr_reader :client, :json_schema, :model, :tools, :serialized_tools, :logger
 
         def messages
           state.messages
@@ -88,6 +90,15 @@ module Rasti
         rescue => ex
           logger.warn(self.class) { "Function failed: #{ex.message}\n#{ex.backtrace.join("\n")}" }
           "Error: #{ex.message}"
+        end
+
+        def response_format
+          return nil if json_schema.nil?
+
+          {
+            type: 'json_schema',
+            json_schema: json_schema
+          }
         end
 
       end
