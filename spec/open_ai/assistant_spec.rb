@@ -163,11 +163,18 @@ describe Rasti::AI::OpenAI::Assistant do
     end
 
     def stub_client_request(role:, content:, response:, tools:[])
+      serialized_tools = tools.map do |tool|
+        {
+          type: 'function',
+          function: Rasti::AI::ToolSerializer.serialize(tool.class)
+        }
+      end
+      
       client.expect :chat_completions, response do |params|
         last_message = params[:messages].last
         last_message[:role] == role &&
           last_message[:content] == content &&
-          params[:tools] == tools.map { |t| Rasti::AI::OpenAI::ToolSerializer.serialize t.class }
+          params[:tools] == serialized_tools
       end
     end
 

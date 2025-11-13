@@ -1,8 +1,8 @@
 require 'minitest_helper'
 
-describe Rasti::AI::OpenAI::ToolSerializer do
+describe Rasti::AI::ToolSerializer do
 
-  let(:serializer) { Rasti::AI::OpenAI::ToolSerializer }
+  let(:serializer) { Rasti::AI::ToolSerializer }
 
   def build_tool_class(form_class=nil)
     tool_class = Minitest::Mock.new
@@ -13,15 +13,12 @@ describe Rasti::AI::OpenAI::ToolSerializer do
 
   def build_serializaton(param_name:, param_type:)
     {
-      type: 'function',
-      function: {
-        name: 'call_custom_function',
-        parameters: {
-          type: 'object',
-          properties: {
-            param_name.to_sym => {
-              type: param_type
-            }
+      name: 'call_custom_function',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          param_name.to_sym => {
+            type: param_type
           }
         }
       }
@@ -34,10 +31,7 @@ describe Rasti::AI::OpenAI::ToolSerializer do
     serialization = serializer.serialize tool_class
 
     expeted_serialization = {
-      type: 'function',
-      function: {
-        name: 'call_custom_function'
-      }
+      name: 'call_custom_function'
     }
 
     assert_equal expeted_serialization, serialization
@@ -52,11 +46,8 @@ describe Rasti::AI::OpenAI::ToolSerializer do
     serialization = serializer.serialize tool_class
 
     expeted_serialization = {
-      type: 'function',
-      function: {
-        name: 'call_custom_function',
-        description: 'Call custom function without arguments',
-      }
+      name: 'call_custom_function',
+      description: 'Call custom function without arguments',
     }
 
     assert_equal expeted_serialization, serialization
@@ -132,7 +123,7 @@ describe Rasti::AI::OpenAI::ToolSerializer do
         serialization = serializer.serialize tool_class
 
         expeted_serialization = build_serializaton param_name: 'timestamp', param_type: 'string'
-        expeted_serialization[:function][:parameters][:properties][:timestamp][:format] = 'date'
+        expeted_serialization[:inputSchema][:properties][:timestamp][:format] = 'date'
 
         assert_equal expeted_serialization, serialization
 
@@ -147,7 +138,7 @@ describe Rasti::AI::OpenAI::ToolSerializer do
         serialization = serializer.serialize tool_class
 
         expeted_serialization = build_serializaton param_name: 'option', param_type: 'string'
-        expeted_serialization[:function][:parameters][:properties][:option][:enum] = ['option_1', 'option_2']
+        expeted_serialization[:inputSchema][:properties][:option][:enum] = ['option_1', 'option_2']
 
         assert_equal expeted_serialization, serialization
 
@@ -163,7 +154,7 @@ describe Rasti::AI::OpenAI::ToolSerializer do
         serialization = serializer.serialize tool_class
 
         expeted_serialization = build_serializaton param_name: 'form', param_type: 'object'
-        expeted_serialization[:function][:parameters][:properties][:form][:properties] = {
+        expeted_serialization[:inputSchema][:properties][:form][:properties] = {
           text: {type: 'string'},
           int: {type: 'integer'}
         }
@@ -183,7 +174,7 @@ describe Rasti::AI::OpenAI::ToolSerializer do
           serialization = serializer.serialize tool_class
 
           expeted_serialization = build_serializaton param_name: 'texts', param_type: 'array'
-          expeted_serialization[:function][:parameters][:properties][:texts][:items] = {type: 'string'}
+          expeted_serialization[:inputSchema][:properties][:texts][:items] = {type: 'string'}
 
           assert_equal expeted_serialization, serialization
 
@@ -198,7 +189,7 @@ describe Rasti::AI::OpenAI::ToolSerializer do
           serialization = serializer.serialize tool_class
 
           expeted_serialization = build_serializaton param_name: 'numbers', param_type: 'array'
-          expeted_serialization[:function][:parameters][:properties][:numbers][:items] = {type: 'number'}
+          expeted_serialization[:inputSchema][:properties][:numbers][:items] = {type: 'number'}
 
           assert_equal expeted_serialization, serialization
 
@@ -214,7 +205,7 @@ describe Rasti::AI::OpenAI::ToolSerializer do
           serialization = serializer.serialize tool_class
 
           expeted_serialization = build_serializaton param_name: 'forms', param_type: 'array'
-          expeted_serialization[:function][:parameters][:properties][:forms][:items] = {
+          expeted_serialization[:inputSchema][:properties][:forms][:items] = {
             type: 'object',
             properties: {
               text: {type: 'string'},
@@ -242,11 +233,11 @@ describe Rasti::AI::OpenAI::ToolSerializer do
       serialization = serializer.serialize tool_class
 
       expeted_serialization = build_serializaton param_name: 'form', param_type: 'object'
-      expeted_serialization[:function][:parameters][:properties] = {
+      expeted_serialization[:inputSchema][:properties] = {
         text: {type: 'string'},
         int: {type: 'integer'}
       }
-      expeted_serialization[:function][:parameters][:required] = [:text]
+      expeted_serialization[:inputSchema][:required] = [:text]
 
       assert_equal expeted_serialization, serialization
 
@@ -264,7 +255,7 @@ describe Rasti::AI::OpenAI::ToolSerializer do
       serialization = serializer.serialize tool_class
 
       expeted_serialization = build_serializaton param_name: 'form', param_type: 'object'
-      expeted_serialization[:function][:parameters][:properties] = {
+      expeted_serialization[:inputSchema][:properties] = {
         text: {
           description: 'Text param',
           type: 'string'
