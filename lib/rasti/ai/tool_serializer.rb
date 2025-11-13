@@ -43,12 +43,22 @@ module Rasti
 
         def serialize_attribute(attribute)
           serialization = {}
-
+          
           if attribute.option(:description)
             serialization[:description] = normalize_description attribute.option(:description)
           end
+          
+          type_serialization = serialize_type attribute.type
+          serialization.merge! type_serialization
 
-          serialization.merge! serialize_type(attribute.type)
+          if attribute.type.is_a? Types::Enum
+            values = "#{type_serialization[:enum].join(', ')}"
+            if serialization[:description]
+              serialization[:description] += " (#{values})"
+            else
+              serialization[:description] = values
+            end
+          end
 
           serialization
         end

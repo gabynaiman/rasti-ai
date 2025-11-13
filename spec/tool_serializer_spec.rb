@@ -139,6 +139,7 @@ describe Rasti::AI::ToolSerializer do
 
         expeted_serialization = build_serializaton param_name: 'option', param_type: 'string'
         expeted_serialization[:inputSchema][:properties][:option][:enum] = ['option_1', 'option_2']
+        expeted_serialization[:inputSchema][:properties][:option][:description] = 'option_1, option_2'
 
         assert_equal expeted_serialization, serialization
 
