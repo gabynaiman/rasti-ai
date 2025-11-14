@@ -8,18 +8,17 @@ describe Rasti::AI::OpenAI::Assistant do
 
   let(:answer) { 'Lionel Messi scored 672 goals in 778 official matches for FC Barcelona.' }
 
-  def stub_open_ai_chat_completions(question:, answer:, model:nil, json_schema:nil)
+  def stub_open_ai_chat_completions(question:, answer:, model:nil, output_schema:nil)
     model ||= Rasti::AI.openai_default_model
 
     body = read_json_resource('open_ai/basic_request.json', model: model, prompt: question)
-    body['response_format'] = {type: 'json_schema', json_schema: json_schema} if json_schema
+    body['response_format'] = {type: 'json_schema', json_schema: output_schema} if output_schema
 
     stub_request(:post, api_url)
       .with(body: JSON.dump(body))
       .to_return(body: read_resource('open_ai/basic_response.json', content: answer))
   end
  
-
   it 'Default' do
     stub_open_ai_chat_completions question: question, answer: answer
 
@@ -112,12 +111,12 @@ describe Rasti::AI::OpenAI::Assistant do
     end
 
     it 'JSON Schema' do
-      json_schema = {answer: 'Response answer'}
+      output_schema = {answer: 'Response answer'}
       json_answer = "{\\\"answer\\\": \\\"#{answer}\\\"}"
 
-      stub_open_ai_chat_completions question: question, answer: json_answer, json_schema: json_schema
+      stub_open_ai_chat_completions question: question, answer: json_answer, output_schema: output_schema
 
-      assistant = Rasti::AI::OpenAI::Assistant.new json_schema: json_schema
+      assistant = Rasti::AI::OpenAI::Assistant.new output_schema: output_schema
 
       response = assistant.call question
 

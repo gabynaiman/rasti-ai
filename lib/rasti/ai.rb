@@ -6,6 +6,7 @@ require 'net/http'
 require 'uri'
 require 'json'
 require 'logger'
+require 'securerandom'
 
 module Rasti
   module AI
@@ -13,6 +14,11 @@ module Rasti
     extend MultiRequire
     extend ClassConfig
 
+    require_relative         'ai/roles'
+    require_relative_pattern 'ai/*'
+    require_relative_pattern 'ai/mcp/*'
+    require_relative         'ai/llm/providers'
+    require_relative_pattern 'ai/llm/**/*'
     require_relative_pattern 'ai/**/*'
 
     attr_config :logger, Logger.new(STDOUT)
