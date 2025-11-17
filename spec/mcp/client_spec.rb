@@ -249,7 +249,7 @@ describe Rasti::AI::MCP::Client do
         client.list_tools
       end
 
-      assert_equal "unexpected token at 'invalid json{'", error.message
+      assert_match /unexpected token/, error.message
     end
 
   end

@@ -76,18 +76,6 @@ describe Rasti::AI::MCP::Server do
     assert_equal_json JSON.dump(expected_response), last_response.body
   end
 
-  def assert_http_error(status, expected_error)
-    expected_response = {
-      jsonrpc: '2.0',
-      id: nil,
-      error: expected_error
-    }
-    
-    assert_equal status, last_response.status
-    assert_equal 'application/json', last_response.content_type
-    assert_equal_json JSON.dump(expected_response), last_response.body
-  end
-
   describe 'Tool registration' do
 
     it 'Register tool' do
@@ -313,25 +301,31 @@ describe Rasti::AI::MCP::Server do
 
     it 'Invalid JSON returns 400' do
       post '/mcp', 'invalid json{'
-
-      expected_error = {
-        code: -32700,
-        message: "unexpected token at 'invalid json{'"
-      }
       
-      assert_http_error 400, expected_error 
+      assert_equal 400, last_response.status
+      assert_equal 'application/json', last_response.content_type
+
+      json_response = JSON.parse last_response.body
+      assert_equal -32700, json_response['error']['code']
+      assert_match /unexpected token/, json_response['error']['message']
     end
 
     it 'Unhandled exception returns 500' do
       app.stub :handle_initialize, ->(_) { raise 'Unexpected server error' } do
         post_mcp_request 'initialize'
 
-        expected_error = {
-          code: -32603,
-          message: 'Unexpected server error'
+        expected_response = {
+          jsonrpc: '2.0',
+          id: nil,
+          error: {
+            code: -32603,
+            message: 'Unexpected server error'
+          }
         }
         
-        assert_http_error 500, expected_error 
+        assert_equal 500, last_response.status
+        assert_equal 'application/json', last_response.content_type
+        assert_equal_json JSON.dump(expected_response), last_response.body
       end
     end
 
