@@ -5,7 +5,7 @@ module Rasti
 
         attr_reader :state
 
-        def initialize(client:nil, json_schema:nil, state:nil, model:nil, tools:[], mcps:{}, logger:nil)
+        def initialize(client:nil, json_schema:nil, state:nil, model:nil, tools:[], mcp_servers:{}, logger:nil)
           @client = client || Client.new
           @json_schema = json_schema
           @state = state || AssistantState.new
@@ -20,7 +20,7 @@ module Rasti
             @serialized_tools << serialization
           end
 
-          mcps.each do |name, mcp|
+          mcp_servers.each do |name, mcp|
             mcp.list_tools.each do |tool|
               serialization = wrap_tool_serialization tool.merge('name' => "#{name}_#{tool['name']}")
               @tools["#{name}_#{tool['name']}"] = ->(args) do
