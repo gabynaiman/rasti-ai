@@ -24,9 +24,11 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency 'class_config', '~> 0.0'
 
   spec.add_development_dependency 'rake', '~> 12.0'
+  spec.add_development_dependency 'rack-test', '~> 2.0'
   spec.add_development_dependency 'minitest', '~> 5.0', '< 5.11'
   spec.add_development_dependency 'minitest-colorin', '~> 0.1'
   spec.add_development_dependency 'minitest-line', '~> 0.6'
+  spec.add_development_dependency 'minitest-extended_assertions', '~> 1.0'
   spec.add_development_dependency 'simplecov', '~> 0.12'
   spec.add_development_dependency 'pry-nav', '~> 0.2'
   spec.add_development_dependency 'webmock', '~> 3.0'
