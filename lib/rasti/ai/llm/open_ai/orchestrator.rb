@@ -15,8 +15,8 @@ module Rasti
             @logger = logger || Rasti::AI.logger
           end
 
-          def call(prompt)
-            session.add_message Message.from_user(content: prompt)
+          def call(prompt=nil)
+            session.add_message Message.from_user(content: prompt) if prompt
 
             loop do
               response = client.chat_completions messages: session.all_messages.map(&:to_h),
@@ -24,12 +24,13 @@ module Rasti
                                                  tools: tools.values.map(&:serialization),
                                                  response_format: response_format
 
-              choice = response['choices'][0]['message']
+              choice = response['choices'][0]
+              message = choice['message']
 
-              if choice['tool_calls']
-                session.add_message Message.from_assistant tool_calls: choice['tool_calls']
+              if message['tool_calls']
+                session.add_message Message.from_assistant tool_calls: message['tool_calls']
 
-                choice['tool_calls'].each do |tool_call|
+                message['tool_calls'].each do |tool_call|
                   name = tool_call['function']['name']
                   arguments = JSON.parse tool_call['function']['arguments']
 
@@ -38,8 +39,8 @@ module Rasti
                   session.add_message Message.from_tool(tool_call_id: tool_call['id'], content: result)
                 end
               else
-                session.add_message Message.from_assistant(content: choice['content'])
-                return choice['content']
+                session.add_message Message.from_assistant(content: message['content'])
+                return message['content'] if choice['finish_reason'] == 'stop'
               end
             end
           end
