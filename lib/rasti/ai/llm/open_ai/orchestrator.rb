@@ -104,6 +104,7 @@ module Rasti
 
           def serialize_tool(tool)
             serialization = ToolSerializer.serialize tool.class
+            serialization[:parameters] = serialization.delete(:inputSchema)
             wrap_tool_serialization serialization
           end          
 
@@ -119,7 +120,7 @@ module Rasti
 
             {
               type: 'json_schema',
-              json_schema: output_schema
+              json_schema: session.configuration.output_schema
             }
           end
 
