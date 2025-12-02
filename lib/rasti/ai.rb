@@ -17,6 +17,10 @@ module Rasti
 
     attr_config :logger, Logger.new(STDOUT)
 
+    attr_config :http_connect_timeout, 60
+    attr_config :http_read_timeout, 60
+    attr_config :http_max_retries, 3
+
     attr_config :openai_api_key, ENV['OPENAI_API_KEY']
     attr_config :openai_default_model, ENV['OPENAI_DEFAULT_MODEL']
 

@@ -15,6 +15,8 @@ require_relative 'support/helpers/resources'
 Rasti::AI.configure do |config|
   config.logger.level = Logger::FATAL
 
+  config.http_max_retries = 1
+
   config.openai_api_key = 'test_api_key'
   config.openai_default_model = 'gpt-test'
 end
