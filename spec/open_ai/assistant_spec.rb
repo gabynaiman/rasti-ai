@@ -63,7 +63,7 @@ describe Rasti::AI::OpenAI::Assistant do
 
     it 'State' do
       context = 'Act as sports journalist'
-      state = Rasti::AI::OpenAI::AssistantState.new context: context
+      state = Rasti::AI::AssistantState.new context: context
 
       request_body = {
         model: Rasti::AI.openai_default_model,
@@ -95,7 +95,7 @@ describe Rasti::AI::OpenAI::Assistant do
       }
 
       assert_equal answer, response
-      assert_equal 3, state.messages.count
+      assert_equal 2, state.messages.count
       assert_equal expected_assistant_message, state.messages.last
     end
 

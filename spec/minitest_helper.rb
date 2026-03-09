@@ -19,6 +19,9 @@ Rasti::AI.configure do |config|
 
   config.openai_api_key = 'test_api_key'
   config.openai_default_model = 'gpt-test'
+
+  config.gemini_api_key = 'test_gemini_api_key'
+  config.gemini_default_model = 'gemini-test'
 end
 
 

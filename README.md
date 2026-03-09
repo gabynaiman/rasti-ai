@@ -27,8 +27,14 @@ Or install it yourself as:
 ```ruby
 Rasti::AI.configure do |config|
   config.logger = Logger.new 'log/development.log'
+
+  # OpenAI
   config.openai_api_key = 'abcd12345' # Default ENV['OPENAI_API_KEY']
   config.openai_default_model = 'gpt-4o-mini' # Default ENV['OPENAI_DEFAULT_MODEL']
+
+  # Gemini
+  config.gemini_api_key = 'AIza12345' # Default ENV['GEMINI_API_KEY']
+  config.gemini_default_model = 'gemini-2.0-flash' # Default ENV['GEMINI_DEFAULT_MODEL']
 end
 ```
 
@@ -73,18 +79,15 @@ assistant.call 'what is the weather in Buenos Aires' # => 'In Buenos Aires it is
 
 #### Context and state
 ```ruby
-state = Rasti::AI::OpenAI::AssistantState.new context: 'Act as sports journalist'
+state = Rasti::AI::AssistantState.new context: 'Act as sports journalist'
 
 assistant = Rasti::AI::OpenAI::Assistant.new state: state
 
 assistant.call 'who is the best player'
 
+state.context  # => 'Act as sports journalist'
 state.messages
 # [
-#   {
-#     role: 'system',
-#     content: 'Act as sports journalist'
-#   },
 #   {
 #     role: 'user',
 #     content: 'who is the best player'
@@ -94,6 +97,61 @@ state.messages
 #     content: 'The best player is Lionel Messi'
 #   }
 # ]
+```
+
+### Gemini
+
+#### Assistant
+```ruby
+assistant = Rasti::AI::Gemini::Assistant.new
+assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
+```
+
+#### Tools
+```ruby
+# Same tools work with both providers
+tools = [
+  GetCurrentTime.new,
+  GetCurrentWeather.new
+]
+
+assistant = Rasti::AI::Gemini::Assistant.new tools: tools
+
+assistant.call 'what time is it' # => 'The current time is 3:03 PM on April 28, 2025.'
+```
+
+#### Context and state
+```ruby
+state = Rasti::AI::AssistantState.new context: 'Act as sports journalist'
+
+assistant = Rasti::AI::Gemini::Assistant.new state: state
+
+assistant.call 'who is the best player'
+
+state.messages
+# [
+#   {
+#     role: 'user',
+#     parts: [{text: 'who is the best player'}]
+#   },
+#   {
+#     role: 'model',
+#     parts: [{text: 'The best player is Lionel Messi'}]
+#   }
+# ]
+```
+
+#### MCP Servers
+```ruby
+mcp_client = Rasti::AI::MCP::Client.new(
+  url: 'https://mcp.server.ai/mcp'
+)
+
+assistant = Rasti::AI::Gemini::Assistant.new(
+  mcp_servers: {my_mcp: mcp_client}
+)
+
+assistant.call 'What is 5 plus 3?'
 ```
 
 ### MCP (Model Context Protocol)
@@ -224,9 +282,9 @@ client = Rasti::AI::MCP::Client.new(
 )
 ```
 
-##### Integration with OpenAI Assistant
+##### Integration with Assistants
 
-You can use MCP clients as tools for the OpenAI Assistant:
+You can use MCP clients as tools for any assistant (OpenAI or Gemini):
 
 ```ruby
 # Create an MCP client
@@ -234,16 +292,18 @@ mcp_client = Rasti::AI::MCP::Client.new(
   url: 'https://mcp.server.ai/mcp'
 )
 
-# Use it with the assistant
+# Use it with OpenAI
 assistant = Rasti::AI::OpenAI::Assistant.new(
-  mcp_servers: {
-    my_mcp: mcp_client
-  }
+  mcp_servers: {my_mcp: mcp_client}
+)
+
+# Or with Gemini - same interface
+assistant = Rasti::AI::Gemini::Assistant.new(
+  mcp_servers: {my_mcp: mcp_client}
 )
 
 # The assistant can now call tools from the MCP server
 assistant.call 'What is 5 plus 3?'
-# The assistant will use the sum_tool from the MCP server
 ```
 
 ## Contributing

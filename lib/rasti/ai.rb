@@ -24,5 +24,8 @@ module Rasti
     attr_config :openai_api_key, ENV['OPENAI_API_KEY']
     attr_config :openai_default_model, ENV['OPENAI_DEFAULT_MODEL']
 
+    attr_config :gemini_api_key, ENV['GEMINI_API_KEY']
+    attr_config :gemini_default_model, ENV['GEMINI_DEFAULT_MODEL']
+
   end
 end
