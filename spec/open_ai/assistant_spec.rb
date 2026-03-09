@@ -126,17 +126,75 @@ describe Rasti::AI::OpenAI::Assistant do
 
   end
 
-  describe 'Tools' do
+  describe 'Usage tracker' do
 
-    class GoalsByPlayer
-      def self.form
-        Rasti::Form[player: Rasti::Types::String, team: Rasti::Types::String]
-      end
+    it 'Track usage' do
+      stub_open_ai_chat_completions question: question, answer: answer
 
-      def call(params={})
-        '672'
-      end
+      tracked = []
+      tracker = ->(usage) { tracked << usage }
+
+      assistant = Rasti::AI::OpenAI::Assistant.new usage_tracker: tracker
+
+      assistant.call question
+
+      assert_equal 1, tracked.count
+
+      usage = tracked[0]
+      assert_instance_of Rasti::AI::Usage, usage
+      assert_equal :open_ai, usage.provider
+      assert_equal 'gpt-4o-mini-2024-07-18', usage.model
+      assert_equal 27, usage.input_tokens
+      assert_equal 229, usage.output_tokens
+      assert_equal 0, usage.cached_tokens
+      assert_equal 0, usage.reasoning_tokens
     end
+
+    it 'Track usage with tool calls' do
+      client = Minitest::Mock.new
+
+      tool_response = read_json_resource(
+        'open_ai/tool_response.json',
+        name: 'goals_by_player',
+        arguments: {player: 'Lionel Messi', team: 'Barcelona'}
+      )
+
+      basic_resp = read_json_resource('open_ai/basic_response.json', content: answer)
+
+      client.expect :chat_completions, tool_response do |params| true end
+      client.expect :chat_completions, basic_resp do |params| true end
+
+      tool = GoalsByPlayer.new
+
+      tracked = []
+      tracker = ->(usage) { tracked << usage }
+
+      assistant = Rasti::AI::OpenAI::Assistant.new client: client, tools: [tool], usage_tracker: tracker
+
+      assistant.call question
+
+      assert_equal 2, tracked.count
+      assert_equal 83, tracked[0].input_tokens
+      assert_equal 23, tracked[0].output_tokens
+      assert_equal 27, tracked[1].input_tokens
+      assert_equal 229, tracked[1].output_tokens
+
+      client.verify
+    end
+
+    it 'Without tracker' do
+      stub_open_ai_chat_completions question: question, answer: answer
+
+      assistant = Rasti::AI::OpenAI::Assistant.new
+
+      response = assistant.call question
+
+      assert_equal answer, response
+    end
+
+  end
+
+  describe 'Tools' do
 
     let(:client) { Minitest::Mock.new }
 

@@ -20,6 +20,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency 'multi_require', '~> 1.0'
   spec.add_runtime_dependency 'rasti-form', '~> 6.0'
+  spec.add_runtime_dependency 'rasti-model', '~> 2.1'
   spec.add_runtime_dependency 'inflecto', '~> 0.0'
   spec.add_runtime_dependency 'class_config', '~> 0.0'
 

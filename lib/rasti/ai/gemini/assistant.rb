@@ -60,6 +60,19 @@ module Rasti
           response.dig('candidates', 0, 'finishReason') == 'STOP'
         end
 
+        def parse_usage(response)
+          usage = response['usageMetadata']
+          return unless usage
+          Usage.new(
+            provider: :gemini,
+            model: response['modelVersion'],
+            input_tokens: usage['promptTokenCount'],
+            output_tokens: usage['candidatesTokenCount'],
+            cached_tokens: usage['cachedContentTokenCount'] || 0,
+            reasoning_tokens: usage['thoughtsTokenCount'] || 0
+          )
+        end
+
         def extract_tool_call_info(tool_call)
           fc = tool_call['functionCall']
           [fc['name'], fc['args'] || {}]

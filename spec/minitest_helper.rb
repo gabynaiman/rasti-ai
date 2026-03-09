@@ -31,3 +31,13 @@ class Minitest::Test
   include Support::Helpers::Resources
 
 end
+
+class GoalsByPlayer
+  def self.form
+    Rasti::Form[player: Rasti::Types::String, team: Rasti::Types::String]
+  end
+
+  def call(params={})
+    '672'
+  end
+end

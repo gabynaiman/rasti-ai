@@ -4,7 +4,7 @@ module Rasti
 
       attr_reader :state
 
-      def initialize(client:nil, json_schema:nil, state:nil, model:nil, tools:[], mcp_servers:{}, logger:nil)
+      def initialize(client:nil, json_schema:nil, state:nil, model:nil, tools:[], mcp_servers:{}, logger:nil, usage_tracker:nil)
         @client = client || build_default_client
         @json_schema = json_schema
         @state = state || AssistantState.new
@@ -12,6 +12,7 @@ module Rasti
         @tools = {}
         @serialized_tools = []
         @logger = logger || Rasti::AI.logger
+        @usage_tracker = usage_tracker || Rasti::AI.usage_tracker
 
         register_tools(tools)
         register_mcp_servers(mcp_servers)
@@ -22,6 +23,7 @@ module Rasti
 
         loop do
           response = request_completion
+          track_usage response
 
           tool_calls = parse_tool_calls(response)
 
@@ -45,10 +47,16 @@ module Rasti
 
       private
 
-      attr_reader :client, :json_schema, :model, :tools, :serialized_tools, :logger
+      attr_reader :client, :json_schema, :model, :tools, :serialized_tools, :logger, :usage_tracker
 
       def messages
         state.messages
+      end
+
+      def track_usage(response)
+        return unless usage_tracker
+        usage = parse_usage response
+        usage_tracker.call usage if usage
       end
 
       # --- Shared behavior ---
@@ -129,6 +137,10 @@ module Rasti
       end
 
       def finished?(response)
+        raise NotImplementedError
+      end
+
+      def parse_usage(response)
         raise NotImplementedError
       end
 
