@@ -56,6 +56,10 @@ module Rasti
           text_part['text']
         end
 
+        def finished?(response)
+          response.dig('candidates', 0, 'finishReason') == 'STOP'
+        end
+
         def extract_tool_call_info(tool_call)
           fc = tool_call['functionCall']
           [fc['name'], fc['args'] || {}]

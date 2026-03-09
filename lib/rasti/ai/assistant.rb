@@ -38,7 +38,7 @@ module Rasti
 
             messages << build_assistant_message(content)
 
-            return content
+            return content if finished?(response)
           end
         end
       end
@@ -125,6 +125,10 @@ module Rasti
       end
 
       def parse_content(response)
+        raise NotImplementedError
+      end
+
+      def finished?(response)
         raise NotImplementedError
       end
 

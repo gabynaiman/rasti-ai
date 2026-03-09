@@ -47,6 +47,10 @@ module Rasti
           response.dig('choices', 0, 'message', 'content')
         end
 
+        def finished?(response)
+          response.dig('choices', 0, 'finish_reason') == 'stop'
+        end
+
         def extract_tool_call_info(tool_call)
           name = tool_call['function']['name']
           args = JSON.parse(tool_call['function']['arguments'])
