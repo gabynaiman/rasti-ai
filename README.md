@@ -28,6 +28,11 @@ Or install it yourself as:
 Rasti::AI.configure do |config|
   config.logger = Logger.new 'log/development.log'
 
+  # HTTP settings
+  config.http_connect_timeout = 60 # Default 60 seconds
+  config.http_read_timeout = 60    # Default 60 seconds
+  config.http_max_retries = 3      # Default 3 retries
+
   # OpenAI
   config.openai_api_key = 'abcd12345' # Default ENV['OPENAI_API_KEY']
   config.openai_default_model = 'gpt-4o-mini' # Default ENV['OPENAI_DEFAULT_MODEL']
@@ -35,18 +40,31 @@ Rasti::AI.configure do |config|
   # Gemini
   config.gemini_api_key = 'AIza12345' # Default ENV['GEMINI_API_KEY']
   config.gemini_default_model = 'gemini-2.0-flash' # Default ENV['GEMINI_DEFAULT_MODEL']
+
+  # Usage tracking
+  config.usage_tracker = ->(usage) { puts "#{usage.provider}: #{usage.input_tokens} in / #{usage.output_tokens} out" }
 end
 ```
 
-### Open AI
+### Supported providers
 
-#### Assistant
+- **OpenAI** - `Rasti::AI::OpenAI::Assistant`
+- **Gemini** - `Rasti::AI::Gemini::Assistant`
+
+All providers share the same interface. The examples below use OpenAI, but apply equally to Gemini by replacing `OpenAI` with `Gemini`.
+
+### Assistant
+
 ```ruby
 assistant = Rasti::AI::OpenAI::Assistant.new
 assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
 ```
 
-#### Tools
+### Tools
+
+Tools can be simple classes or inherit from `Rasti::AI::Tool`. Both approaches work with any provider.
+
+#### Simple tools
 ```ruby
 class GetCurrentTime
   def call(params={})
@@ -60,11 +78,41 @@ class GetCurrentWeather
   end
 
   def call(params={})
-    response = HTTP.get "https://api.wheater.com/?location=#{params['location']}"
-    response.body.to_s
+    "The wheather in #{params['location']} is sunny"
   end
 end
+```
 
+#### Tools inheriting from Rasti::AI::Tool
+```ruby
+class SumTool < Rasti::AI::Tool
+  class Form < Rasti::Form
+    attribute :number_a, Rasti::Types::Float, required: true, description: 'First number'
+    attribute :number_b, Rasti::Types::Float, required: true, description: 'Second number'
+  end
+
+  def self.description
+    'Sum two numbers'
+  end
+
+  def execute(form)
+    {result: form.number_a + form.number_b}
+  end
+end
+```
+
+Supported form attribute types:
+- `Rasti::Types::String` → `string`
+- `Rasti::Types::Integer` → `integer`
+- `Rasti::Types::Float` → `number`
+- `Rasti::Types::Boolean` → `boolean`
+- `Rasti::Types::Time` → `string (date)`
+- `Rasti::Types::Enum[:a, :b]` → `string (enum)`
+- `Rasti::Types::Array[Type]` → `array`
+- `Rasti::Types::Model[FormClass]` → nested `object`
+
+#### Using tools with an assistant
+```ruby
 tools = [
   GetCurrentTime.new,
   GetCurrentWeather.new
@@ -77,7 +125,7 @@ assistant.call 'what time is it' # => 'The current time is 3:03 PM on April 28, 
 assistant.call 'what is the weather in Buenos Aires' # => 'In Buenos Aires it is 15 degrees'
 ```
 
-#### Context and state
+### Context and state
 ```ruby
 state = Rasti::AI::AssistantState.new context: 'Act as sports journalist'
 
@@ -86,72 +134,63 @@ assistant = Rasti::AI::OpenAI::Assistant.new state: state
 assistant.call 'who is the best player'
 
 state.context  # => 'Act as sports journalist'
-state.messages
-# [
-#   {
-#     role: 'user',
-#     content: 'who is the best player'
-#   },
-#   {
-#     role: 'assistant',
-#     content: 'The best player is Lionel Messi'
-#   }
-# ]
+state.messages # Array of provider-specific message hashes
 ```
 
-### Gemini
+The state keeps the conversation history, enabling multi-turn interactions. It also caches tool call results to avoid duplicate executions.
 
-#### Assistant
+### Structured responses (JSON Schema)
 ```ruby
-assistant = Rasti::AI::Gemini::Assistant.new
-assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
+assistant = Rasti::AI::OpenAI::Assistant.new json_schema: {
+  player: 'string',
+  sport: 'string'
+}
+
+response = assistant.call 'who is the best player'
+JSON.parse response # => {"player" => "Lionel Messi", "sport" => "Football"}
 ```
 
-#### Tools
+### Custom model and client
 ```ruby
-# Same tools work with both providers
-tools = [
-  GetCurrentTime.new,
-  GetCurrentWeather.new
-]
+# Override model
+assistant = Rasti::AI::OpenAI::Assistant.new model: 'gpt-4o'
 
-assistant = Rasti::AI::Gemini::Assistant.new tools: tools
+# Custom client with per-client HTTP settings
+client = Rasti::AI::OpenAI::Client.new(
+  http_connect_timeout: 120,
+  http_read_timeout: 120,
+  http_max_retries: 5
+)
 
-assistant.call 'what time is it' # => 'The current time is 3:03 PM on April 28, 2025.'
+assistant = Rasti::AI::OpenAI::Assistant.new client: client
 ```
 
-#### Context and state
+### Usage tracking
+
+Track token consumption across API calls (including tool calls):
+
 ```ruby
-state = Rasti::AI::AssistantState.new context: 'Act as sports journalist'
+tracked_usage = []
+tracker = ->(usage) { tracked_usage << usage }
 
-assistant = Rasti::AI::Gemini::Assistant.new state: state
-
+assistant = Rasti::AI::OpenAI::Assistant.new usage_tracker: tracker
 assistant.call 'who is the best player'
 
-state.messages
-# [
-#   {
-#     role: 'user',
-#     parts: [{text: 'who is the best player'}]
-#   },
-#   {
-#     role: 'model',
-#     parts: [{text: 'The best player is Lionel Messi'}]
-#   }
-# ]
+usage = tracked_usage.first
+usage.provider          # => :open_ai
+usage.model             # => 'gpt-4o-mini'
+usage.input_tokens      # => 150
+usage.output_tokens     # => 42
+usage.cached_tokens     # => 0
+usage.reasoning_tokens  # => 0
 ```
 
-#### MCP Servers
+The tracker can also be configured globally:
+
 ```ruby
-mcp_client = Rasti::AI::MCP::Client.new(
-  url: 'https://mcp.server.ai/mcp'
-)
-
-assistant = Rasti::AI::Gemini::Assistant.new(
-  mcp_servers: {my_mcp: mcp_client}
-)
-
-assistant.call 'What is 5 plus 3?'
+Rasti::AI.configure do |config|
+  config.usage_tracker = ->(usage) { MyMetrics.track(usage) }
+end
 ```
 
 ### MCP (Model Context Protocol)
@@ -184,17 +223,6 @@ class HelloWorldTool < Rasti::AI::Tool
 
   def execute(form)
     {text: 'Hello world'}
-  end
-end
-
-class SumTool < Rasti::AI::Tool
-  class Form < Rasti::Form
-    attribute :number_a, Rasti::Types::Float
-    attribute :number_b, Rasti::Types::Float
-  end
-
-  def execute(form)
-    {result: form.number_a + form.number_b}
   end
 end
 
@@ -284,21 +312,14 @@ client = Rasti::AI::MCP::Client.new(
 
 ##### Integration with Assistants
 
-You can use MCP clients as tools for any assistant (OpenAI or Gemini):
+You can use MCP clients as tools for any assistant:
 
 ```ruby
-# Create an MCP client
 mcp_client = Rasti::AI::MCP::Client.new(
   url: 'https://mcp.server.ai/mcp'
 )
 
-# Use it with OpenAI
 assistant = Rasti::AI::OpenAI::Assistant.new(
-  mcp_servers: {my_mcp: mcp_client}
-)
-
-# Or with Gemini - same interface
-assistant = Rasti::AI::Gemini::Assistant.new(
   mcp_servers: {my_mcp: mcp_client}
 )
 
