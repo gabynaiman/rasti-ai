@@ -48,7 +48,7 @@ module Rasti
         end
 
         def finished?(response)
-          response.dig('choices', 0, 'finish_reason') == 'stop'
+          !response.dig('choices', 0, 'finish_reason').nil?
         end
 
         def parse_usage(response)
