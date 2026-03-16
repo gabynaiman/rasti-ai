@@ -83,6 +83,56 @@ describe Rasti::AI::Gemini::Client do
       refute_empty log_output.string
     end
 
+    describe 'Usage tracker' do
+
+      it 'Track usage' do
+        stub_gemini_generate_content
+
+        tracked = []
+        tracker = ->(usage) { tracked << usage }
+
+        client = Rasti::AI::Gemini::Client.new usage_tracker: tracker
+
+        client.generate_content contents: [user_content(question)]
+
+        assert_equal 1, tracked.count
+
+        expected_raw = {
+          'promptTokenCount' => 4,
+          'candidatesTokenCount' => 18,
+          'totalTokenCount' => 275,
+          'promptTokensDetails' => [
+            {
+              'modality' => 'TEXT',
+              'tokenCount' => 4
+            }
+          ],
+          'thoughtsTokenCount' => 253
+        }
+
+        usage = tracked[0]
+        assert_instance_of Rasti::AI::Usage, usage
+        assert_equal 'gemini', usage.provider
+        assert_equal 'gemini-test', usage.model
+        assert_equal 4, usage.input_tokens
+        assert_equal 18, usage.output_tokens
+        assert_equal 0, usage.cached_tokens
+        assert_equal 253, usage.reasoning_tokens
+        assert_equal expected_raw, usage.raw
+      end
+
+      it 'Without tracker' do
+        stub_gemini_generate_content
+
+        client = Rasti::AI::Gemini::Client.new
+
+        response = client.generate_content contents: [user_content(question)]
+
+        assert_response_content response, answer
+      end
+
+    end
+
   end
 
   it 'Request error' do

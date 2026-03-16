@@ -18,6 +18,20 @@ module Rasti
 
         private
 
+        def parse_usage(response)
+          usage = response['usage']
+          return unless usage
+          Usage.new(
+            provider: 'open_ai',
+            model: response['model'],
+            input_tokens: usage['prompt_tokens'],
+            output_tokens: usage['completion_tokens'],
+            cached_tokens: usage.dig('prompt_tokens_details', 'cached_tokens') || 0,
+            reasoning_tokens: usage.dig('completion_tokens_details', 'reasoning_tokens') || 0,
+            raw: usage
+          )
+        end
+
         def default_api_key
           Rasti::AI.openai_api_key
         end

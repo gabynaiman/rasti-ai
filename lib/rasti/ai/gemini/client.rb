@@ -17,6 +17,20 @@ module Rasti
 
         private
 
+        def parse_usage(response)
+          usage = response['usageMetadata']
+          return unless usage
+          Usage.new(
+            provider: 'gemini',
+            model: response['modelVersion'],
+            input_tokens: usage['promptTokenCount'],
+            output_tokens: usage['candidatesTokenCount'],
+            cached_tokens: usage['cachedContentTokenCount'] || 0,
+            reasoning_tokens: usage['thoughtsTokenCount'] || 0,
+            raw: usage
+          )
+        end
+
         def default_api_key
           Rasti::AI.gemini_api_key
         end

@@ -83,6 +83,59 @@ describe Rasti::AI::OpenAI::Client do
       refute_empty log_output.string
     end
 
+    describe 'Usage tracker' do
+
+      it 'Track usage' do
+        stub_open_ai_chat_completions
+
+        tracked = []
+        tracker = ->(usage) { tracked << usage }
+
+        client = Rasti::AI::OpenAI::Client.new usage_tracker: tracker
+
+        client.chat_completions messages: [user_message(question)]
+
+        assert_equal 1, tracked.count
+
+        expected_raw = {
+          'prompt_tokens' => 27,
+          'completion_tokens' => 229,
+          'total_tokens' => 256,
+          'prompt_tokens_details' => {
+            'cached_tokens' => 0,
+            'audio_tokens' => 0
+          },
+          'completion_tokens_details' => {
+            'reasoning_tokens' => 0,
+            'audio_tokens' => 0,
+            'accepted_prediction_tokens' => 0,
+            'rejected_prediction_tokens' => 0
+          }
+        }
+
+        usage = tracked[0]
+        assert_instance_of Rasti::AI::Usage, usage
+        assert_equal 'open_ai', usage.provider
+        assert_equal 'gpt-4o-mini-2024-07-18', usage.model
+        assert_equal 27, usage.input_tokens
+        assert_equal 229, usage.output_tokens
+        assert_equal 0, usage.cached_tokens
+        assert_equal 0, usage.reasoning_tokens
+        assert_equal expected_raw, usage.raw
+      end
+
+      it 'Without tracker' do
+        stub_open_ai_chat_completions
+
+        client = Rasti::AI::OpenAI::Client.new
+
+        response = client.chat_completions messages: [user_message(question)]
+
+        assert_response_content response, answer
+      end
+
+    end
+
   end
 
   it 'Request error' do

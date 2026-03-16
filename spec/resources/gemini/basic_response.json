@@ -14,9 +14,16 @@
     }
   ],
   "usageMetadata": {
-    "promptTokenCount": 10,
-    "candidatesTokenCount": 50,
-    "totalTokenCount": 60
+    "promptTokenCount": 4,
+    "candidatesTokenCount": 18,
+    "totalTokenCount": 275,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 4
+      }
+    ],
+    "thoughtsTokenCount": 253
   },
   "modelVersion": "gemini-test"
 }

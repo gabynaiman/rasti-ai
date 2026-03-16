@@ -4,17 +4,28 @@ module Rasti
 
       RETRYABLE_STATUS_CODES = [502, 503, 504].freeze
 
-      def initialize(api_key:nil, logger:nil, http_connect_timeout:nil, http_read_timeout:nil, http_max_retries:nil)
+      def initialize(api_key:nil, logger:nil, http_connect_timeout:nil, http_read_timeout:nil, http_max_retries:nil, usage_tracker:nil)
         @api_key = api_key || default_api_key
         @logger = logger || Rasti::AI.logger
         @http_connect_timeout = http_connect_timeout || Rasti::AI.http_connect_timeout
         @http_read_timeout = http_read_timeout || Rasti::AI.http_read_timeout
         @http_max_retries = http_max_retries || Rasti::AI.http_max_retries
+        @usage_tracker = usage_tracker || Rasti::AI.usage_tracker
       end
 
       private
 
-      attr_reader :api_key, :logger, :http_connect_timeout, :http_read_timeout, :http_max_retries
+      attr_reader :api_key, :logger, :http_connect_timeout, :http_read_timeout, :http_max_retries, :usage_tracker
+
+      def track_usage(response)
+        return unless usage_tracker
+        usage = parse_usage response
+        usage_tracker.call usage if usage
+      end
+
+      def parse_usage(response)
+        raise NotImplementedError
+      end
 
       def default_api_key
         raise NotImplementedError
@@ -63,7 +74,9 @@ module Rasti
             raise Errors::RequestFail.new(url, body, response)
           end
 
-          JSON.parse response.body
+          parsed_response = JSON.parse response.body
+          track_usage parsed_response
+          parsed_response
 
         rescue SocketError, Net::OpenTimeout, Net::ReadTimeout, Errors::RequestFail => e
           if retry_count < max_retries
