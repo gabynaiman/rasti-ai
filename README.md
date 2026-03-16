@@ -173,7 +173,8 @@ Track token consumption across API calls (including tool calls):
 tracked_usage = []
 tracker = ->(usage) { tracked_usage << usage }
 
-assistant = Rasti::AI::OpenAI::Assistant.new usage_tracker: tracker
+client = Rasti::AI::OpenAI::Client.new usage_tracker: tracker
+assistant = Rasti::AI::OpenAI::Assistant.new client: client
 assistant.call 'who is the best player'
 
 usage = tracked_usage.first
@@ -183,6 +184,7 @@ usage.input_tokens      # => 150
 usage.output_tokens     # => 42
 usage.cached_tokens     # => 0
 usage.reasoning_tokens  # => 0
+usage.raw               # => Raw usage payload from provider
 ```
 
 The tracker can also be configured globally:
