@@ -41,6 +41,10 @@ Rasti::AI.configure do |config|
   config.gemini_api_key = 'AIza12345' # Default ENV['GEMINI_API_KEY']
   config.gemini_default_model = 'gemini-2.0-flash' # Default ENV['GEMINI_DEFAULT_MODEL']
 
+  # Anthropic
+  config.anthropic_api_key = 'sk-ant-12345' # Default ENV['ANTHROPIC_API_KEY']
+  config.anthropic_default_model = 'claude-opus-4-5' # Default ENV['ANTHROPIC_DEFAULT_MODEL']
+
   # Usage tracking
   config.usage_tracker = ->(usage) { puts "#{usage.provider}: #{usage.input_tokens} in / #{usage.output_tokens} out" }
 end
@@ -50,8 +54,9 @@ end
 
 - **OpenAI** - `Rasti::AI::OpenAI::Assistant`
 - **Gemini** - `Rasti::AI::Gemini::Assistant`
+- **Anthropic** - `Rasti::AI::Anthropic::Assistant`
 
-All providers share the same interface. The examples below use OpenAI, but apply equally to Gemini by replacing `OpenAI` with `Gemini`.
+All providers share the same interface. The examples below use OpenAI, but apply equally to Gemini or Anthropic by replacing `OpenAI` with the provider name.
 
 ### Assistant
 
@@ -163,6 +168,14 @@ client = Rasti::AI::OpenAI::Client.new(
 )
 
 assistant = Rasti::AI::OpenAI::Assistant.new client: client
+
+# Anthropic client
+client = Rasti::AI::Anthropic::Client.new(
+  http_connect_timeout: 120,
+  http_read_timeout: 300  # Claude can be slow on long responses
+)
+
+assistant = Rasti::AI::Anthropic::Assistant.new client: client
 ```
 
 ### Usage tracking

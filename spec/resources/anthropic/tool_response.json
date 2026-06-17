@@ -1,0 +1,22 @@
+{
+  "id": "msg_01HqBZkZSz4zKijpCKB8AMKM",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01A09q90qw90lq917835lq9",
+      "name": "<%= name %>",
+      "input": <%= JSON.dump(arguments) %>
+    }
+  ],
+  "model": "claude-test",
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 82,
+    "output_tokens": 29,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0
+  }
+}

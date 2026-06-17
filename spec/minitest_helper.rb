@@ -22,6 +22,9 @@ Rasti::AI.configure do |config|
 
   config.gemini_api_key = 'test_gemini_api_key'
   config.gemini_default_model = 'gemini-test'
+
+  config.anthropic_api_key = 'test_anthropic_api_key'
+  config.anthropic_default_model = 'claude-test'
 end
 
 

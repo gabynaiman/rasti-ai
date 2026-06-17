@@ -1,0 +1,1 @@
+{"model":"<%= model %>","max_tokens":4096,"messages":[{"role":"user","content":"<%= prompt %>"}],"tools":<%= JSON.dump(tools) %>,"tool_choice":{"type":"auto"}}
