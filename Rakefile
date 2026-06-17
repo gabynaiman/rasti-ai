@@ -1,6 +1,8 @@
 require 'bundler/gem_tasks'
 require 'rake/testtask'
 
+FileList['tasks/**/*.rake'].each { |f| import f }
+
 Rake::TestTask.new(:spec) do |t|
   t.libs << 'spec'
   t.libs << 'lib'

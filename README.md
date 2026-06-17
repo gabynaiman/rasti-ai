@@ -342,6 +342,18 @@ assistant = Rasti::AI::OpenAI::Assistant.new(
 assistant.call 'What is 5 plus 3?'
 ```
 
+## Try it out
+
+The gem includes interactive chat tasks wired to the [Pipeworx](https://pipeworx.io) public weather MCP server (no auth required):
+
+```bash
+OPENAI_API_KEY=sk-...    rake assistant:openai
+GEMINI_API_KEY=AIza...   rake assistant:gemini
+ANTHROPIC_API_KEY=sk-... rake assistant:anthropic
+```
+
+Type your message and press Enter. Type `exit` or `Ctrl+C` to quit.
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/gabynaiman/rasti-ai.
