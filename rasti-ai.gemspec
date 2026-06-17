@@ -27,6 +27,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency 'class_config', '~> 0.0'
 
   spec.add_development_dependency 'rake', '~> 12.0'
+  spec.add_development_dependency 'rack', '>= 1.3', '< 3'
   spec.add_development_dependency 'rack-test', '~> 2.0'
   spec.add_development_dependency 'minitest', '~> 5.0', '< 5.11'
   spec.add_development_dependency 'minitest-colorin', '~> 0.1'
