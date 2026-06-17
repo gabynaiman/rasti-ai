@@ -33,6 +33,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'minitest-line', '~> 0.6'
   spec.add_development_dependency 'minitest-extended_assertions', '~> 1.0'
   spec.add_development_dependency 'simplecov', '~> 0.12'
-  spec.add_development_dependency 'pry-nav', '~> 0.2'
+  spec.add_development_dependency 'pry-nav', '>= 0.2'
   spec.add_development_dependency 'webmock', '~> 3.0'
 end
