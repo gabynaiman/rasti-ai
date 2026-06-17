@@ -11,12 +11,14 @@ describe Rasti::AI::MCP::Client do
   def stub_mcp_request(method, params:{}, result:{}, error:nil)
     request_body = {
       jsonrpc: '2.0',
+      id: 1,
       method: method,
       params: params
     }
 
     response_body = {
-      jsonrpc: '2.0'
+      jsonrpc: '2.0',
+      id: 1
     }
 
     if error
