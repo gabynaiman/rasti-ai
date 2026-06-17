@@ -5,9 +5,6 @@ module Rasti
 
         ToolSpecification = Rasti::Model[:tool, :serialization]
 
-        PROTOCOL_VERSION = '2024-11-05'.freeze
-        JSON_RPC_VERSION = '2.0'.freeze
-
         extend ClassConfig
 
         attr_config :server_name, 'MCP Server'

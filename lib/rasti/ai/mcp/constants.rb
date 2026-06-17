@@ -2,6 +2,9 @@ module Rasti
   module AI
     module MCP
 
+      JSON_RPC_VERSION                   = '2.0'.freeze
+      PROTOCOL_VERSION                   = '2024-11-05'.freeze
+
       # JSON-RPC oficiales
       JSON_RPC_PARSE_ERROR               = -32700
       JSON_RPC_INVALID_REQUEST           = -32600
