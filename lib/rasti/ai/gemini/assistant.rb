@@ -5,6 +5,12 @@ module Rasti
 
         ALLOWED_SCHEMA_FIELDS = %w[type description properties required enum items format nullable anyOf].freeze
 
+        THINKING_LEVELS = {
+          'low'    => {thinking_budget: 1_024}.freeze,
+          'medium' => {thinking_budget: 8_192}.freeze,
+          'high'   => {thinking_budget: 24_576}.freeze
+        }.freeze
+
         private
 
         def build_default_client
@@ -105,13 +111,16 @@ module Rasti
           [{function_declarations: serialized_tools}]
         end
 
-        def generation_config
-          return nil if json_schema.nil?
+        def thinking_config
+          THINKING_LEVELS[thinking]
+        end
 
-          {
-            response_mime_type: 'application/json',
-            response_schema: json_schema
-          }
+        def generation_config
+          config = {}
+          config[:thinking_config]    = thinking_config if thinking
+          config[:response_mime_type] = 'application/json' if json_schema
+          config[:response_schema]    = json_schema        if json_schema
+          config.empty? ? nil : config
         end
 
       end

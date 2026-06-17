@@ -33,10 +33,15 @@ module Rasti
             messages
           end
 
-          client.chat_completions messages: msgs,
-                                  model: model,
-                                  tools: serialized_tools,
-                                  response_format: response_format
+          client.chat_completions messages:         msgs,
+                                  model:            model,
+                                  tools:            serialized_tools,
+                                  response_format:  response_format,
+                                  reasoning_effort: thinking_config
+        end
+
+        def thinking_config
+          thinking
         end
 
         def parse_tool_calls(response)

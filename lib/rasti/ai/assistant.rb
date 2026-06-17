@@ -2,13 +2,18 @@ module Rasti
   module AI
     class Assistant
 
-      attr_reader :state
+      attr_reader :state, :model, :thinking
 
-      def initialize(client:nil, json_schema:nil, state:nil, model:nil, tools:[], mcp_servers:{}, logger:nil)
+      VALID_THINKING_LEVELS = %w[low medium high].freeze
+
+      def initialize(client:nil, json_schema:nil, state:nil, model:nil, thinking:nil, tools:[], mcp_servers:{}, logger:nil)
+        raise ArgumentError, "Invalid thinking level '#{thinking}'. Valid: #{VALID_THINKING_LEVELS.join(', ')}" if thinking && !VALID_THINKING_LEVELS.include?(thinking)
+
         @client = client || build_default_client
         @json_schema = json_schema
         @state = state || AssistantState.new
         @model = model
+        @thinking = thinking
         @tools = {}
         @serialized_tools = []
         @logger = logger || Rasti::AI.logger
@@ -45,7 +50,7 @@ module Rasti
 
       private
 
-      attr_reader :client, :json_schema, :model, :tools, :serialized_tools, :logger
+      attr_reader :client, :json_schema, :tools, :serialized_tools, :logger
 
       def messages
         state.messages

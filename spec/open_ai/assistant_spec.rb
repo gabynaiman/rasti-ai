@@ -35,15 +35,16 @@ describe Rasti::AI::OpenAI::Assistant do
     it 'Client' do
       client_arguments = [
         {
-          model: nil,
-          tools: [],
+          model:            nil,
+          tools:            [],
           messages: [
             {
-              role: Rasti::AI::OpenAI::Roles::USER,
+              role:    Rasti::AI::OpenAI::Roles::USER,
               content: question
             }
           ],
-          response_format: nil
+          response_format:  nil,
+          reasoning_effort: nil
         }
       ]
 
@@ -105,6 +106,21 @@ describe Rasti::AI::OpenAI::Assistant do
       stub_open_ai_chat_completions question: question, answer: answer, model: model
 
       assistant = Rasti::AI::OpenAI::Assistant.new model: model
+
+      response = assistant.call question
+
+      assert_equal answer, response
+    end
+
+    it 'Thinking' do
+      body = read_json_resource('open_ai/basic_request.json', model: Rasti::AI.openai_default_model, prompt: question)
+      body['reasoning_effort'] = 'medium'
+
+      stub_request(:post, api_url)
+        .with(body: JSON.dump(body))
+        .to_return(body: read_resource('open_ai/basic_response.json', content: answer))
+
+      assistant = Rasti::AI::OpenAI::Assistant.new thinking: 'medium'
 
       response = assistant.call question
 
