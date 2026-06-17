@@ -178,6 +178,17 @@ client = Rasti::AI::Anthropic::Client.new(
 assistant = Rasti::AI::Anthropic::Assistant.new client: client
 ```
 
+### Thinking / extended reasoning
+
+Some providers support extended reasoning ("thinking") to improve accuracy on complex tasks. Pass `thinking:` with a level of `'low'`, `'medium'`, or `'high'` when creating an assistant:
+
+```ruby
+assistant = Rasti::AI::Anthropic::Assistant.new thinking: 'high'
+assistant.call 'Solve this step by step: ...'
+```
+
+The level controls how much computation the model can spend reasoning before responding. Higher levels may improve answer quality at the cost of more tokens and latency. Not all models support thinking — check your provider's documentation.
+
 ### Usage tracking
 
 Track token consumption across API calls (including tool calls):
