@@ -3,6 +3,8 @@ module Rasti
     module Gemini
       class Assistant < Rasti::AI::Assistant
 
+        ALLOWED_SCHEMA_FIELDS = %w[type description properties required enum items format nullable anyOf].freeze
+
         private
 
         def build_default_client
@@ -66,13 +68,32 @@ module Rasti
         end
 
         def wrap_tool_serialization(raw)
-          result = raw.dup
-          if result.key?(:inputSchema)
-            result[:parameters] = result.delete(:inputSchema)
-          elsif result.key?('inputSchema')
-            result['parameters'] = result.delete('inputSchema')
+          schema = raw[:inputSchema] || raw['inputSchema']
+
+          result = {
+            name:        raw[:name]        || raw['name'],
+            description: raw[:description] || raw['description'] || raw[:title] || raw['title']
+          }
+          result[:parameters] = sanitize_schema(schema) if schema
+          result.reject { |_, v| v.nil? }
+        end
+
+        def sanitize_schema(schema)
+          return schema unless schema.is_a?(Hash)
+
+          schema.each_with_object({}) do |(key, value), acc|
+            next unless ALLOWED_SCHEMA_FIELDS.include?(key.to_s)
+            acc[key] = case key.to_s
+                       when 'properties'
+                         value.each_with_object({}) { |(k, v), h| h[k] = sanitize_schema(v) }
+                       when 'items'
+                         sanitize_schema(value)
+                       when 'anyOf'
+                         value.map { |item| sanitize_schema(item) }
+                       else
+                         value
+                       end
           end
-          result
         end
 
         def extract_tool_name(wrapped)
