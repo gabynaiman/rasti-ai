@@ -293,7 +293,7 @@ end
 
 ### Instance variables (`@`)
 
-Avoid bare `@variable` references in method bodies. Always declare an `attr_reader` (and `attr_writer` if mutation is needed after construction) inside the `private` section, then access the attribute by its reader name throughout the class. Direct `@` usage is only acceptable inside `initialize` assignments and inside the writer itself.
+Avoid bare `@variable` references in method bodies. Always declare an `attr_reader` inside the `private` section, then access the attribute by its reader name throughout the class. Direct `@` usage is only acceptable inside `initialize` assignments and inside the writer itself.
 
 ```ruby
 # Bad — @session_id scattered across methods
@@ -322,6 +322,26 @@ All method signatures use keyword arguments. Required params have no default; op
 ```ruby
 def messages(messages:, model:nil, system:nil, tools:[], tool_choice:nil, thinking:nil)
 ```
+
+### Readability and maintainability
+
+Readability and maintainability are the primary goals. When two styles are equivalent in correctness, always choose the one that reads more naturally.
+
+Omit parentheses in method calls when they add no clarity — particularly in single-argument calls, `if`/`unless` conditions, and DSL-style invocations:
+
+```ruby
+# Preferred
+raise NotImplementedError
+attr_reader :client
+puts response
+
+# Avoid
+raise(NotImplementedError)
+attr_reader(:client)
+puts(response)
+```
+
+Include parentheses when they genuinely aid readability: chained calls, multiple arguments, complex expressions, or any case where omitting them could cause ambiguity.
 
 ### Template methods
 
