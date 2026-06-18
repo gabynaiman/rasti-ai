@@ -9,10 +9,15 @@ module Rasti
         attr_config :server_version, '1.0.0'
         attr_config :relative_path,  '/mcp'
         attr_config :tools_loader
+        attr_config :authenticator
 
         class << self
           def load_tools(&block)
             self.tools_loader = block
+          end
+
+          def authenticate(&block)
+            self.authenticator = block
           end
         end
 
@@ -35,6 +40,11 @@ module Rasti
         attr_reader :app
 
         def handle_mcp_request(request)
+          if !authorized? request
+            response = error_response nil, JSON_RPC_SERVER_UNAUTHORIZED, 'Unauthorized'
+            return [401, {'Content-Type' => 'application/json'}, [JSON.dump(response)]]
+          end
+
           body = request.body.read
           data = JSON.parse body
 
@@ -60,6 +70,10 @@ module Rasti
         rescue => e
           response = error_response nil, JSON_RPC_INTERNAL_ERROR, e.message
           [500, {'Content-Type' => 'application/json'}, [JSON.dump(response)]]
+        end
+
+        def authorized?(request)
+          !self.class.authenticator || self.class.authenticator.call(request)
         end
 
         def build_tools_registry(request)

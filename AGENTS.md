@@ -523,6 +523,54 @@ It's a simple class (not a `Tool` subclass) that returns a plain string — cove
   Each task validates the key, writes logs to `log/<provider>.log`, connects to the [Pipeworx](https://pipeworx.io) public weather MCP server, and starts a `You:` / `Assistant:` prompt loop (`exit` or `Ctrl+C` to quit). The model can be overridden with the matching env variable (e.g. `OPENAI_DEFAULT_MODEL=gpt-4o`).
 
 
+## MCP Server
+
+`Rasti::AI::MCP::Server` is a Rack middleware with a class-level DSL backed by `ClassConfig`. Two independent config blocks drive its behavior:
+
+| Config | DSL method | Role |
+|---|---|---|
+| `authenticator` | `authenticate(&block)` | Optional auth check; runs in `handle_mcp_request` before the body is read |
+| `tools_loader` | `load_tools(&block)` | Per-request tool registration; runs inside `handle_mcp_request` after the body is parsed |
+
+### Request flow
+
+`call`:
+1. Path + method check — non-MCP requests pass through to `app` unchanged
+2. `handle_mcp_request`
+
+`handle_mcp_request`:
+1. Auth check — if `authenticator` is set and returns falsy → return `unauthorized_response` (HTTP 401), stop
+2. Read and parse body
+3. `build_tools_registry`, dispatch by `data['method']`
+
+### Auth response format
+
+Auth is checked before the body is parsed, so `id` is `nil`. The MCP spec states that HTTP-level errors (e.g. 403 for invalid Origin) MAY include a JSON-RPC error body with no `id`; the same pattern applies to 401:
+
+```
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+
+{"jsonrpc":"2.0","id":null,"error":{"code":-32002,"message":"Unauthorized"}}
+```
+
+Error code `-32002` maps to `JSON_RPC_SERVER_UNAUTHORIZED` defined in `mcp/constants.rb`.
+
+### Why auth goes inside `handle_mcp_request`
+
+`handle_mcp_request` owns the complete request lifecycle: auth, parse, dispatch. Keeping the check there makes the method the single place to read when reasoning about what happens to an incoming MCP request. `call` stays minimal — just routing.
+
+The check is inlined, consistent with how other error responses are built in the class:
+
+```ruby
+if !authorized? request
+  response = error_response nil, JSON_RPC_SERVER_UNAUTHORIZED, 'Unauthorized'
+  return [401, {'Content-Type' => 'application/json'}, [JSON.dump(response)]]
+end
+```
+
+Nota: `authorized?` usa `authenticator.call(request)` con paréntesis. En Ruby 2.3, `proc.call arg` sin paréntesis con un solo argumento genera `SyntaxError` — el parser espera `end` después de `call` y ve el identificador suelto. Con múltiples argumentos (`tools_loader.call tools_registry, request`) funciona porque la coma actúa de separador.
+
 ## CI
 
 GitHub Actions — `.github/workflows/ci.yml`.

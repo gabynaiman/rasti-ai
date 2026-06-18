@@ -237,6 +237,22 @@ Rasti::AI::MCP::Server.configure do |config|
 end
 ```
 
+##### Authentication
+
+Use the `authenticate` block to control access to the MCP endpoint. The block receives the current `Rack::Request` and must return a truthy value to allow the request or a falsy value to reject it.
+
+```ruby
+Rasti::AI::MCP::Server.configure do |config|
+  config.authenticate do |request|
+    request.env['HTTP_AUTHORIZATION'] == "Bearer #{ENV['MCP_TOKEN']}"
+  end
+end
+```
+
+When authentication fails the server returns HTTP 401 with a JSON-RPC error body. The check runs before the request body is read, so it covers all MCP methods including `initialize`.
+
+The `authenticate` and `load_tools` blocks are independent — when authentication fails `load_tools` is never called.
+
 ##### Registering Tools
 
 Tools are registered per-request via a `load_tools` block. The block receives a `ToolsRegistry` and the current `Rack::Request`, enabling context-aware tool instantiation (e.g. based on the authenticated user).
@@ -247,14 +263,14 @@ Rasti::AI::MCP::Server.configure do |config|
     user = User.find(request.session[:user_id])
 
     # Form A: Rasti::AI::Tool instance — name, description and schema derived from the class
-    tools_registry.register(tool: MyTool.new(user))
+    tools_registry.register tool: MyTool.new(user)
 
     # Form B: tool instance with a custom name
-    tools_registry.register(name: 'search', tool: SearchTool.new(user))
+    tools_registry.register name: 'search', tool: SearchTool.new(user)
 
     # Form C: tool instance with description or schema overrides
     tools_registry.register(
-      tool:        MyTool.new(user),
+      tool: MyTool.new(user),
       description: 'Contextual description for the LLM'
     )
 
@@ -265,21 +281,21 @@ Rasti::AI::MCP::Server.configure do |config|
 
     # Form E: fully inline — raw JSON Schema, no class required
     tools_registry.register(
-      name:         'report',
-      description:  'Generate a report',
+      name: 'report',
+      description: 'Generate a report',
       input_schema: {
-        type:       'object',
+        type: 'object',
         properties: {
-          title:   {type: 'string'},
+          title: {type: 'string'},
           filters: {
-            type:       'object',
+            type: 'object',
             properties: {
-              category:   {type: 'string', enum: ['sales', 'ops']},
+              category: {type: 'string', enum: ['sales', 'ops']},
               date_range: {
-                type:       'object',
+                type: 'object',
                 properties: {
                   from: {type: 'string', format: 'date'},
-                  to:   {type: 'string', format: 'date'}
+                  to: {type: 'string', format: 'date'}
                 },
                 required: ['from', 'to']
               }
@@ -317,8 +333,8 @@ require 'rasti/ai'
 Rasti::AI::MCP::Server.configure do |config|
   config.load_tools do |tools_registry, request|
     user = User.find(request.session[:user_id])
-    tools_registry.register(tool: MyTool.new(user))
-    tools_registry.register(tool: OtherTool.new(user))
+    tools_registry.register tool: MyTool.new(user)
+    tools_registry.register tool: OtherTool.new(user)
   end
 end
 
@@ -342,10 +358,8 @@ The MCP Client allows you to communicate with MCP servers.
 ##### Basic Usage
 
 ```ruby
-# Create a client
-client = Rasti::AI::MCP::Client.new(
-  url: 'https://mcp.server.ai/mcp'
-)
+client = Rasti::AI::MCP::Client.new url: 'https://mcp.server.ai/mcp'
+
 
 # List available tools
 tools = client.list_tools
@@ -395,9 +409,8 @@ client = Rasti::AI::MCP::Client.new(
 You can use MCP clients as tools for any assistant:
 
 ```ruby
-mcp_client = Rasti::AI::MCP::Client.new(
-  url: 'https://mcp.server.ai/mcp'
-)
+mcp_client = Rasti::AI::MCP::Client.new url: 'https://mcp.server.ai/mcp'
+
 
 assistant = Rasti::AI::OpenAI::Assistant.new(
   mcp_servers: {my_mcp: mcp_client}

@@ -302,6 +302,101 @@ describe Rasti::AI::MCP::Server do
 
   end
 
+  describe 'Authentication' do
+
+    def assert_unauthorized
+      expected_response = {
+        jsonrpc: '2.0',
+        id: nil,
+        error: {
+          code: -32002,
+          message: 'Unauthorized'
+        }
+      }
+
+      assert_equal 401, last_response.status
+      assert_equal 'application/json', last_response.content_type
+      assert_equal_json JSON.dump(expected_response), last_response.body
+    end
+
+    it 'Allows request when no authenticator configured' do
+      post_mcp_request 'initialize'
+
+      assert_equal 200, last_response.status
+    end
+
+    it 'Allows request when authenticator returns true' do
+      Rasti::AI::MCP::Server.configure do |config|
+        config.authenticate { |_request| true }
+      end
+
+      post_mcp_request 'initialize'
+
+      assert_equal 200, last_response.status
+    end
+
+    it 'Rejects initialize when authenticator returns false' do
+      Rasti::AI::MCP::Server.configure do |config|
+        config.authenticate { |_request| false }
+      end
+
+      post_mcp_request 'initialize'
+
+      assert_unauthorized
+    end
+
+    it 'Rejects tools/list when authenticator returns false' do
+      Rasti::AI::MCP::Server.configure do |config|
+        config.authenticate { |_request| false }
+      end
+
+      post_mcp_request 'tools/list'
+
+      assert_unauthorized
+    end
+
+    it 'Rejects tools/call when authenticator returns false' do
+      Rasti::AI::MCP::Server.configure do |config|
+        config.authenticate { |_request| false }
+      end
+
+      post_mcp_request 'tools/call', name: 'any_tool'
+
+      assert_unauthorized
+    end
+
+    it 'Validates bearer token from Authorization header' do
+      Rasti::AI::MCP::Server.configure do |config|
+        config.authenticate { |request| request.env['HTTP_AUTHORIZATION'] == 'Bearer secret' }
+        config.load_tools { |registry, _| registry.register tool: HelloWorldTool.new }
+      end
+
+      post_mcp_request 'tools/list'
+      assert_unauthorized
+
+      header 'Authorization', 'Bearer secret'
+      post_mcp_request 'tools/list'
+      assert_equal 200, last_response.status
+    end
+
+    it 'Does not call load_tools when authentication fails' do
+      tools_loader_called = false
+
+      Rasti::AI::MCP::Server.configure do |config|
+        config.authenticate { |_request| false }
+        config.load_tools do |registry, _|
+          tools_loader_called = true
+          registry.register tool: HelloWorldTool.new
+        end
+      end
+
+      post_mcp_request 'tools/list'
+
+      assert_equal false, tools_loader_called
+    end
+
+  end
+
   describe 'Request routing' do
 
     it 'GET requests to MCP path passed to app' do
