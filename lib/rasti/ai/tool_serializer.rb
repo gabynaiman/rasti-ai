@@ -18,8 +18,6 @@ module Rasti
           raise Errors::ToolSerializationError.new(tool_class), cause: ex
         end
 
-        private
-
         def serialize_name(tool_class)
           Inflecto.underscore Inflecto.demodulize(tool_class.name)
         end
@@ -40,6 +38,8 @@ module Rasti
 
           serialization
         end
+
+        private
 
         def serialize_attribute(attribute)
           serialization = {}

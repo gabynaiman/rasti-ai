@@ -239,23 +239,74 @@ end
 
 ##### Registering Tools
 
-Tools must inherit from `Rasti::AI::Tool` and can be registered with the server:
+Tools are registered per-request via a `load_tools` block. The block receives a `ToolsRegistry` and the current `Rack::Request`, enabling context-aware tool instantiation (e.g. based on the authenticated user).
 
 ```ruby
-class HelloWorldTool < Rasti::AI::Tool
-  def self.description
-    'Returns a hello world message'
-  end
+Rasti::AI::MCP::Server.configure do |config|
+  config.load_tools do |tools_registry, request|
+    user = User.find(request.session[:user_id])
 
-  def execute(form)
-    {text: 'Hello world'}
+    # Form A: Rasti::AI::Tool instance — name, description and schema derived from the class
+    tools_registry.register(tool: MyTool.new(user))
+
+    # Form B: tool instance with a custom name
+    tools_registry.register(name: 'search', tool: SearchTool.new(user))
+
+    # Form C: tool instance with description or schema overrides
+    tools_registry.register(
+      tool:        MyTool.new(user),
+      description: 'Contextual description for the LLM'
+    )
+
+    # Form D: existing Form class + block — schema from the Form, execution in the block
+    tools_registry.register(name: 'sum', description: 'Sum two numbers', form: SumTool::Form) do |args|
+      SumTool.new.call(args)
+    end
+
+    # Form E: fully inline — raw JSON Schema, no class required
+    tools_registry.register(
+      name:         'report',
+      description:  'Generate a report',
+      input_schema: {
+        type:       'object',
+        properties: {
+          title:   {type: 'string'},
+          filters: {
+            type:       'object',
+            properties: {
+              category:   {type: 'string', enum: ['sales', 'ops']},
+              date_range: {
+                type:       'object',
+                properties: {
+                  from: {type: 'string', format: 'date'},
+                  to:   {type: 'string', format: 'date'}
+                },
+                required: ['from', 'to']
+              }
+            }
+          }
+        },
+        required: ['title']
+      }
+    ) do |args|
+      user.generate_report(args['title'], args['filters'])
+    end
   end
 end
-
-# Register tools
-Rasti::AI::MCP::Server.register_tool HelloWorldTool.new
-Rasti::AI::MCP::Server.register_tool SumTool.new
 ```
+
+`tools_registry.register` accepts all keyword arguments as optional and combines them according to these precedence rules:
+
+| Parameter | Purpose | Precedence |
+|---|---|---|
+| `name:` | Tool identifier | Explicit > derived from `tool.class` |
+| `description:` | Description shown to the LLM | Explicit > `tool.class.description` |
+| `input_schema:` | Raw JSON Schema hash for parameters | Explicit > `form:` > `tool.class.form` |
+| `form:` | `Rasti::Form` subclass for schema | Used when no `input_schema:` |
+| `tool:` | `Rasti::AI::Tool` instance | Provides defaults + executor |
+| block | Executor called with args hash | Block > `tool.call` |
+
+Block executors receive the arguments as a `Hash` with string keys and must return a `String`.
 
 ##### Using as Rack Middleware
 
@@ -263,17 +314,20 @@ Rasti::AI::MCP::Server.register_tool SumTool.new
 # In your config.ru
 require 'rasti/ai'
 
-# Register your tools
-Rasti::AI::MCP::Server.register_tool HelloWorldTool.new
-Rasti::AI::MCP::Server.register_tool SumTool.new
+Rasti::AI::MCP::Server.configure do |config|
+  config.load_tools do |tools_registry, request|
+    user = User.find(request.session[:user_id])
+    tools_registry.register(tool: MyTool.new(user))
+    tools_registry.register(tool: OtherTool.new(user))
+  end
+end
 
-# Use as middleware
 use Rasti::AI::MCP::Server
 
 run YourApp
 ```
 
-The server will handle POST requests to the configured path (`/mcp` by default) and pass all other requests to your application.
+The server handles POST requests to the configured path (`/mcp` by default) and forwards all other requests to the application. The `load_tools` block runs on every request, so tools are always fresh and scoped to the current request context.
 
 ##### Supported MCP Methods
 

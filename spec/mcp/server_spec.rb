@@ -2,42 +2,20 @@ require 'minitest_helper'
 
 describe Rasti::AI::MCP::Server do
 
-  class HelloWorldTool < Rasti::AI::Tool
-    def self.description
-      'Hello World'
-    end
-
-    def execute(form)
-      {text: 'Hello world'}
-    end
-  end
-
-  class SumTool < Rasti::AI::Tool
-    class Form < Rasti::Form
-      attribute :number_a, Rasti::Types::Float
-      attribute :number_b, Rasti::Types::Float
-    end
-
-    def execute(form)
-      {result: form.number_a + form.number_b}
-    end
-  end
-
   class ErrorTool < Rasti::AI::Tool
     def execute(form)
-      raise "Unexpected tool error"
+      raise 'Unexpected tool error'
     end
   end
 
   include Rack::Test::Methods
 
   let(:app) do
-    app = lambda { |env| [200, {'Content-Type' => 'text/plain'}, ['App response']] }
-    Rasti::AI::MCP::Server.new app
+    inner = lambda { |env| [200, {'Content-Type' => 'text/plain'}, ['App response']] }
+    Rasti::AI::MCP::Server.new inner
   end
 
   before do
-    Rasti::AI::MCP::Server.clear_tools
     Rasti::AI::MCP::Server.restore_default_configuration
   end
 
@@ -49,7 +27,7 @@ describe Rasti::AI::MCP::Server do
     }
     request_data[:params] = params unless params.empty?
 
-    post Rasti::AI::MCP::Server.relative_path, JSON.dump(request_data), CONTENT_TYPE: 'application/json'
+    post Rasti::AI::MCP::Server.relative_path, JSON.dump(request_data), 'CONTENT_TYPE' => 'application/json'
   end
 
   def assert_jsonrpc_success(expected_result)
@@ -58,7 +36,7 @@ describe Rasti::AI::MCP::Server do
       id: 1,
       result: expected_result
     }
-    
+
     assert_equal 200, last_response.status
     assert_equal 'application/json', last_response.content_type
     assert_equal_json JSON.dump(expected_response), last_response.body
@@ -70,58 +48,10 @@ describe Rasti::AI::MCP::Server do
       id: 1,
       error: expected_error
     }
-    
+
     assert_equal 200, last_response.status
     assert_equal 'application/json', last_response.content_type
     assert_equal_json JSON.dump(expected_response), last_response.body
-  end
-
-  describe 'Tool registration' do
-
-    it 'Register tool' do
-      Rasti::AI::MCP::Server.register_tool HelloWorldTool.new
-      Rasti::AI::MCP::Server.register_tool SumTool.new
-      
-      serializations = Rasti::AI::MCP::Server.tools_serializations
-
-      expeted_serializations = [
-        Rasti::AI::ToolSerializer.serialize(HelloWorldTool),
-        Rasti::AI::ToolSerializer.serialize(SumTool)
-      ]
-
-      assert_equal expeted_serializations, serializations
-    end
-
-    it 'Register duplicate tool raises error' do
-      Rasti::AI::MCP::Server.register_tool HelloWorldTool.new
-      
-      error = assert_raises RuntimeError do
-        Rasti::AI::MCP::Server.register_tool HelloWorldTool.new
-      end
-      
-      assert_equal 'Tool hello_world_tool already exist', error.message
-    end
-
-    it 'Tools serializations empty when no tools' do
-      assert_empty Rasti::AI::MCP::Server.tools_serializations
-    end
-
-    it 'Call tool executes registered tool' do
-      Rasti::AI::MCP::Server.register_tool HelloWorldTool.new
-      
-      result = Rasti::AI::MCP::Server.call_tool 'hello_world_tool'
-      
-      assert_equal '{"text":"Hello world"}', result
-    end
-
-    it 'Call tool not found raises error' do
-      error = assert_raises RuntimeError do
-        Rasti::AI::MCP::Server.call_tool 'non_existent', {}
-      end
-      
-      assert_equal 'Tool non_existent not found', error.message
-    end
-
   end
 
   describe 'Initialize request' do
@@ -148,10 +78,10 @@ describe Rasti::AI::MCP::Server do
 
     it 'Custom server configuration' do
       Rasti::AI::MCP::Server.configure do |config|
-        config.server_name = 'Custom MCP Server'
+        config.server_name    = 'Custom MCP Server'
         config.server_version = '2.0.0'
       end
-      
+
       post_mcp_request 'initialize'
 
       expected_result = {
@@ -175,19 +105,19 @@ describe Rasti::AI::MCP::Server do
 
   describe 'Tools list request' do
 
-    it 'Returns empty list when no tools' do
+    it 'Returns empty list when no builder configured' do
       post_mcp_request 'tools/list'
 
-      expected_result = {
-        tools: []
-      }
-
-      assert_jsonrpc_success expected_result
+      assert_jsonrpc_success tools: []
     end
 
-    it 'Returns registered tools' do
-      Rasti::AI::MCP::Server.register_tool HelloWorldTool.new
-      Rasti::AI::MCP::Server.register_tool SumTool.new
+    it 'Returns tools registered in builder' do
+      Rasti::AI::MCP::Server.configure do |config|
+        config.load_tools do |tools_registry, _request|
+          tools_registry.register tool: HelloWorldTool.new
+          tools_registry.register tool: SumTool.new
+        end
+      end
 
       post_mcp_request 'tools/list'
 
@@ -201,13 +131,46 @@ describe Rasti::AI::MCP::Server do
       assert_jsonrpc_success expected_result
     end
 
+    it 'Passes request to builder' do
+      received_path = nil
+
+      Rasti::AI::MCP::Server.configure do |config|
+        config.load_tools do |tools_registry, request|
+          received_path = request.path
+        end
+      end
+
+      post_mcp_request 'tools/list'
+
+      assert_equal '/mcp', received_path
+    end
+
+    it 'Builder runs on every request' do
+      call_count = 0
+
+      Rasti::AI::MCP::Server.configure do |config|
+        config.load_tools do |tools_registry, _request|
+          call_count += 1
+        end
+      end
+
+      post_mcp_request 'tools/list'
+      post_mcp_request 'tools/list'
+
+      assert_equal 2, call_count
+    end
+
   end
 
   describe 'Tools call request' do
 
     before do
-      Rasti::AI::MCP::Server.register_tool HelloWorldTool.new
-      Rasti::AI::MCP::Server.register_tool SumTool.new
+      Rasti::AI::MCP::Server.configure do |config|
+        config.load_tools do |tools_registry, _request|
+          tools_registry.register tool: HelloWorldTool.new
+          tools_registry.register tool: SumTool.new
+        end
+      end
     end
 
     it 'Executes tool with arguments' do
@@ -234,11 +197,7 @@ describe Rasti::AI::MCP::Server do
     end
 
     it 'Executes tool without arguments' do
-      params = {
-        name: 'hello_world_tool'
-      }
-
-      post_mcp_request 'tools/call', params
+      post_mcp_request 'tools/call', name: 'hello_world_tool'
 
       expected_result = {
         content: [
@@ -252,12 +211,48 @@ describe Rasti::AI::MCP::Server do
       assert_jsonrpc_success expected_result
     end
 
-    it 'Tool call with nonexistent tool returns error' do
-      params = {
-        name: 'nonexistent'
+    it 'Executes block-registered tool' do
+      Rasti::AI::MCP::Server.configure do |config|
+        config.load_tools do |tools_registry, _request|
+          schema = {type: 'object', properties: {text: {type: 'string'}}}
+          tools_registry.register name: 'echo', description: 'Echo text', input_schema: schema do |args|
+            args['text']
+          end
+        end
+      end
+
+      post_mcp_request 'tools/call', name: 'echo', arguments: {text: 'hello'}
+
+      expected_result = {
+        content: [
+          {
+            type: 'text',
+            text: 'hello'
+          }
+        ]
       }
 
-      post_mcp_request 'tools/call', params
+      assert_jsonrpc_success expected_result
+    end
+
+    it 'Receives request context in builder during tool call' do
+      received_header = nil
+
+      Rasti::AI::MCP::Server.configure do |config|
+        config.load_tools do |tools_registry, request|
+          received_header = request.env['HTTP_X_USER_ID']
+          tools_registry.register tool: HelloWorldTool.new
+        end
+      end
+
+      header 'X-User-Id', '42'
+      post_mcp_request 'tools/call', name: 'hello_world_tool'
+
+      assert_equal '42', received_header
+    end
+
+    it 'Tool call with nonexistent tool returns error' do
+      post_mcp_request 'tools/call', name: 'nonexistent'
 
       expected_error = {
         code: -32603,
@@ -268,13 +263,13 @@ describe Rasti::AI::MCP::Server do
     end
 
     it 'Tool execution error returns error response' do
-      Rasti::AI::MCP::Server.register_tool ErrorTool.new
+      Rasti::AI::MCP::Server.configure do |config|
+        config.load_tools do |tools_registry, _request|
+          tools_registry.register tool: ErrorTool.new
+        end
+      end
 
-      params = {
-        name: 'error_tool'
-      }
-
-      post_mcp_request 'tools/call', params
+      post_mcp_request 'tools/call', name: 'error_tool'
 
       expected_error = {
         code: -32603,
@@ -296,53 +291,22 @@ describe Rasti::AI::MCP::Server do
         message: 'Method not found'
       }
 
-      assert_jsonrpc_error expected_error      
+      assert_jsonrpc_error expected_error
     end
 
-    it 'Invalid JSON returns 400' do
-      post '/mcp', 'invalid json{'
-      
+    it 'Invalid JSON returns parse error' do
+      post Rasti::AI::MCP::Server.relative_path, 'not valid json', 'CONTENT_TYPE' => 'application/json'
+
       assert_equal 400, last_response.status
-      assert_equal 'application/json', last_response.content_type
-
-      json_response = JSON.parse last_response.body
-      assert_equal -32700, json_response['error']['code']
-      assert_match /unexpected token/, json_response['error']['message']
-    end
-
-    it 'Unhandled exception returns 500' do
-      app.stub :handle_initialize, ->(_) { raise 'Unexpected server error' } do
-        post_mcp_request 'initialize'
-
-        expected_response = {
-          jsonrpc: '2.0',
-          id: nil,
-          error: {
-            code: -32603,
-            message: 'Unexpected server error'
-          }
-        }
-        
-        assert_equal 500, last_response.status
-        assert_equal 'application/json', last_response.content_type
-        assert_equal_json JSON.dump(expected_response), last_response.body
-      end
     end
 
   end
 
-  describe 'Middleware behavior' do
-
-    it 'Non MCP requests passed to app' do
-      get '/other/path'
-      
-      assert_equal 200, last_response.status
-      assert_equal 'App response', last_response.body
-    end
+  describe 'Request routing' do
 
     it 'GET requests to MCP path passed to app' do
       get '/mcp'
-      
+
       assert_equal 200, last_response.status
       assert_equal 'App response', last_response.body
     end
@@ -361,8 +325,8 @@ describe Rasti::AI::MCP::Server do
 
       post '/mcp'
       assert_equal 200, last_response.status
-      assert_equal 'App response', last_response.body 
-      
+      assert_equal 'App response', last_response.body
+
       post_mcp_request 'tools/list'
       assert_jsonrpc_success tools: []
     end

@@ -35,6 +35,32 @@ class Minitest::Test
 
 end
 
+class HelloWorldTool < Rasti::AI::Tool
+  def self.description
+    'Hello World'
+  end
+
+  def execute(form)
+    {text: 'Hello world'}
+  end
+end
+
+class SumTool < Rasti::AI::Tool
+  class Form < Rasti::Form
+    attribute :number_a, Rasti::Types::Float
+    attribute :number_b, Rasti::Types::Float
+  end
+
+  def self.description
+    'Sum two numbers'
+  end
+
+  def execute(form)
+    {result: form.number_a + form.number_b}
+  end
+end
+
+
 class GoalsByPlayer
   def self.form
     Rasti::Form[player: Rasti::Types::String, team: Rasti::Types::String]
