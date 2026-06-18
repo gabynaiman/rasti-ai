@@ -78,6 +78,7 @@ lib/
         assistant.rb
       mcp/
         server.rb              # Rack middleware exposing tools via JSON-RPC 2.0
+        tools_registry.rb      # per-request tool registry used by the middleware
         client.rb              # HTTP client for MCP servers
         errors.rb
 
@@ -102,6 +103,7 @@ spec/
   mcp/
     client_spec.rb
     server_spec.rb
+    tools_registry_spec.rb
   tool_serializer_spec.rb
 ```
 
@@ -232,13 +234,13 @@ This also applies to per-provider constants in `Assistant` subclasses (`THINKING
 All string constants use `.freeze`. Integer and array/hash literals that are already frozen by `%w[]`/`.freeze` on the outer value don't need it again on the inner elements. Integers never need `.freeze`.
 
 ```ruby
-USER    = 'user'.freeze
+USER = 'user'.freeze
 ASSISTANT = 'assistant'.freeze
 
 VALID_THINKING_LEVELS = %w[low medium high].freeze
 
 THINKING_LEVELS = {
-  'low'    => {thinking_budget: 1_024}.freeze,
+  'low' => {thinking_budget: 1_024}.freeze,
   'medium' => {thinking_budget: 8_192}.freeze,
 }.freeze
 ```
@@ -249,30 +251,99 @@ Start with the required keys, then conditionally add optional ones. Never includ
 
 ```ruby
 body = {
-  model:      model || Rasti::AI.anthropic_default_model,
+  model: model || Rasti::AI.anthropic_default_model,
   max_tokens: max_tokens || DEFAULT_MAX_TOKENS,
-  messages:   messages
+  messages: messages
 }
 
-body[:thinking]    = thinking    if thinking
-body[:system]      = system      if system
-body[:tools]       = tools       unless tools.empty?
+body[:thinking] = thinking if thinking
+body[:system] = system if system
+body[:tools] = tools unless tools.empty?
 body[:tool_choice] = tool_choice if tool_choice
 ```
 
 ### Hash alignment
 
-When a hash literal spans multiple lines, align the values so the `=>`/`:` separators line up:
+Use `key: value` without padding spaces. Do not align values across keys:
 
 ```ruby
 {
-  model:      model,
+  model: model,
   max_tokens: DEFAULT_MAX_TOKENS,
-  messages:   messages
+  messages: messages
 }
 ```
 
-This applies equally to inline conditional assignments and `let`/`expect` argument lists in specs.
+Nested hashes always go on their own lines, indented one level. Never inline a multi-key hash next to its parent key or inside an array bracket:
+
+```ruby
+# Preferred
+{
+  role: Roles::USER,
+  content: [
+    {
+      type: 'tool_result',
+      tool_use_id: tool_call['id'],
+      content: result
+    }
+  ]
+}
+
+# Avoid
+{
+  role:    Roles::USER,
+  content: [{
+    type:        'tool_result',
+    tool_use_id: tool_call['id'],
+    content:     result
+  }]
+}
+```
+
+Exception: a single-key nested hash that fits naturally on one line can stay inline (e.g. `THINKING_LEVELS` entries). Apply judgment — the goal is always readability.
+
+### Parentheses
+
+Omit parentheses in method calls when they add no clarity — particularly in single-argument calls, `if`/`unless` conditions, and DSL-style invocations:
+
+```ruby
+# Preferred
+raise NotImplementedError
+attr_reader :client
+puts response
+
+# Avoid
+raise(NotImplementedError)
+attr_reader(:client)
+puts(response)
+```
+
+Include parentheses when the call uses splat, double-splat, or block arguments (`*`, `**`, `&`), or when omitting them causes ambiguity in a complex expression:
+
+```ruby
+# Required — splat/block args
+object.forward(*args, &block)
+
+# Required — disambiguate argument boundary in compound conditions
+if tool && tool.class.respond_to?(:form)  # correct
+if tool && tool.class.respond_to? :form   # wrong: :form is parsed as arg to &&
+
+# Required — call is the value of a hash key or inside an array literal with a constant arg
+# (Ruby 2.3 parser raises SyntaxError: unexpected tCONSTANT)
+{ inputSchema: ToolSerializer.serialize_form(SumTool::Form) }   # correct
+{ inputSchema: ToolSerializer.serialize_form SumTool::Form }    # wrong: SyntaxError in Ruby 2.3
+[ToolSerializer.serialize(HelloWorldTool)]                      # correct
+[ToolSerializer.serialize HelloWorldTool]                       # wrong: SyntaxError in Ruby 2.3
+
+# Required — call is an intermediate argument in a multi-arg call
+# (without parens the outer parser greedily passes subsequent args to the inner call)
+post path, JSON.dump(body), 'CONTENT_TYPE' => 'application/json'   # correct
+post path, JSON.dump body, 'CONTENT_TYPE' => 'application/json'    # wrong: 'CONTENT_TYPE' => ... is passed to JSON.dump
+
+# Fine without parentheses — multiple regular args
+http.post '/path', body: '{}'
+calc.sum 1, 2
+```
 
 ### `private` and `attr_reader`
 
@@ -322,26 +393,6 @@ All method signatures use keyword arguments. Required params have no default; op
 ```ruby
 def messages(messages:, model:nil, system:nil, tools:[], tool_choice:nil, thinking:nil)
 ```
-
-### Readability and maintainability
-
-Readability and maintainability are the primary goals. When two styles are equivalent in correctness, always choose the one that reads more naturally.
-
-Omit parentheses in method calls when they add no clarity — particularly in single-argument calls, `if`/`unless` conditions, and DSL-style invocations:
-
-```ruby
-# Preferred
-raise NotImplementedError
-attr_reader :client
-puts response
-
-# Avoid
-raise(NotImplementedError)
-attr_reader(:client)
-puts(response)
-```
-
-Include parentheses when they genuinely aid readability: chained calls, multiple arguments, complex expressions, or any case where omitting them could cause ambiguity.
 
 ### Template methods
 
