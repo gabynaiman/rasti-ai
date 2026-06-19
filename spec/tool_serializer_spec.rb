@@ -274,16 +274,41 @@ describe Rasti::AI::ToolSerializer do
 
   end
 
-  it 'Invalid tool' do
+  it 'Custom registered type' do
+    custom_type = Class.new
+    Rasti::Model::Schema.register_type_serializer(custom_type) { {type: :string} }
+
+    form_class = Rasti::Form[value: custom_type]
+    tool_class = build_tool_class form_class
+
+    serialization = serializer.serialize tool_class
+
+    expected_serialization = build_serializaton param_name: 'value', param_type: 'string'
+
+    assert_equal expected_serialization, serialization
+
+    tool_class.verify
+  end
+
+  it 'Unknown type serializes without constraints' do
     form_class = Rasti::Form[obj: Object]
     tool_class = build_tool_class form_class
 
-    error = assert_raises(Rasti::AI::Errors::ToolSerializationError) do
-      serializer.serialize tool_class
-    end
+    serialization = serializer.serialize tool_class
 
-    assert_equal "Tool serialization error: #{tool_class}", error.message
-    assert_equal 'Type not serializable Object', error.cause.message
+    expected_serialization = {
+      name: 'call_custom_function',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          obj: {}
+        }
+      }
+    }
+
+    assert_equal expected_serialization, serialization
+
+    tool_class.verify
   end
 
 end

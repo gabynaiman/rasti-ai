@@ -115,6 +115,9 @@ Supported form attribute types:
 - `Rasti::Types::Enum[:a, :b]` → `string (enum)`
 - `Rasti::Types::Array[Type]` → `array`
 - `Rasti::Types::Model[FormClass]` → nested `object`
+- `Rasti::Types::Hash` → `object`
+- Custom types registered via `Rasti::Model::Schema.register_type_serializer` or implementing `to_schema` are picked up automatically
+- Unknown types → no constraints (empty schema, no crash)
 
 #### Using tools with an assistant
 ```ruby

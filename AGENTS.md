@@ -523,6 +523,37 @@ It's a simple class (not a `Tool` subclass) that returns a plain string — cove
   Each task validates the key, writes logs to `log/<provider>.log`, connects to the [Pipeworx](https://pipeworx.io) public weather MCP server, and starts a `You:` / `Assistant:` prompt loop (`exit` or `Ctrl+C` to quit). The model can be overridden with the matching env variable (e.g. `OPENAI_DEFAULT_MODEL=gpt-4o`).
 
 
+## ToolSerializer
+
+`ToolSerializer.serialize_form(form_class)` delegates to `form_class.to_schema` (`Rasti::Model::Schema.serialize`) and converts the result to JSON Schema via two private methods:
+
+- **`json_schema_from_model_schema(schema)`** — takes the full model schema hash (`{model:, attributes: [...]}`) and builds a JSON Schema `{type: 'object', properties: {...}, required: [...]}`. Required attributes are those with `options[:required]` truthy.
+- **`json_schema_for_type(type_hash)`** — maps a single model-schema type hash to its JSON Schema equivalent. Recursive for `:array` (via `items`) and `:model` (delegates back to `json_schema_from_model_schema`).
+
+Type mapping:
+
+| Model schema type | JSON Schema |
+|---|---|
+| `:string`, `:symbol` | `{type: 'string'}` |
+| `:integer` | `{type: 'integer'}` |
+| `:float` | `{type: 'number'}` |
+| `:boolean` | `{type: 'boolean'}` |
+| `:time` | `{type: 'string', format: 'date'}` |
+| `:enum` | `{type: 'string', enum: [...]}` |
+| `:array` | `{type: 'array', items: ...}` (recursive) |
+| `:model` | `{type: 'object', properties: ...}` (recursive) |
+| `:hash` | `{type: 'object'}` |
+| `:any`, `:unknown`, anything else | `{}` (no constraints, no crash) |
+
+### Extension points
+
+Because serialization goes through `Rasti::Model::Schema`, both extension mechanisms it provides work automatically:
+
+- **`Rasti::Model::Schema.register_type_serializer(type, serialized_type=nil, &block)`** — registers a mapping for a custom type class. The returned type hash goes through `json_schema_for_type` like any other.
+- **`to_schema` duck-typing** — if the type itself responds to `to_schema`, `Rasti::Model::Schema` calls it and uses the result. No changes needed in `ToolSerializer`.
+
+Custom type registrations should live in the application (e.g. an initializer), not in `rasti-ai`.
+
 ## MCP Server
 
 `Rasti::AI::MCP::Server` is a Rack middleware with a class-level DSL backed by `ClassConfig`. Two independent config blocks drive its behavior:

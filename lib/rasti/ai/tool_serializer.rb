@@ -9,11 +9,10 @@ module Rasti
           }
 
           serialization[:description] = normalize_description(tool_class.description) if tool_class.respond_to? :description
-
           serialization[:inputSchema] = serialize_form(tool_class.form) if tool_class.respond_to? :form
 
           serialization
-          
+
         rescue => ex
           raise Errors::ToolSerializationError.new(tool_class), cause: ex
         end
@@ -23,36 +22,34 @@ module Rasti
         end
 
         def serialize_form(form_class)
-          serialized_attributes = form_class.attributes.each_with_object({}) do |attribute, hash|
-            hash[attribute.name] = serialize_attribute attribute
-          end
-
-          serialization = {
-            type: 'object',
-            properties: serialized_attributes
-          }
-
-          required_attributes = form_class.attributes.select { |a| a.option(:required) }
-
-          serialization[:required] = required_attributes.map(&:name) unless required_attributes.empty?
-
-          serialization
+          json_schema_from_model_schema form_class.to_schema
         end
 
         private
 
-        def serialize_attribute(attribute)
-          serialization = {}
-          
-          if attribute.option(:description)
-            serialization[:description] = normalize_description attribute.option(:description)
+        def json_schema_from_model_schema(schema)
+          properties = schema[:attributes].each_with_object({}) do |attribute, hash|
+            hash[attribute[:name]] = json_schema_for_attribute(attribute)
           end
-          
-          type_serialization = serialize_type attribute.type
-          serialization.merge! type_serialization
 
-          if attribute.type.is_a? Types::Enum
-            values = "#{type_serialization[:enum].join(', ')}"
+          result = {type: 'object', properties: properties}
+
+          required = schema[:attributes].select { |a| (a[:options] || {})[:required] }.map { |a| a[:name] }
+          result[:required] = required unless required.empty?
+
+          result
+        end
+
+        def json_schema_for_attribute(attribute)
+          serialization = {}
+
+          description = (attribute[:options] || {})[:description]
+          serialization[:description] = normalize_description(description) if description
+
+          serialization.merge! json_schema_for_type(attribute)
+
+          if attribute[:type] == :enum
+            values = attribute[:values].join(', ')
             if serialization[:description]
               serialization[:description] += " (#{values})"
             else
@@ -63,49 +60,25 @@ module Rasti
           serialization
         end
 
-        def serialize_type(type)
-          if type == Types::String
-            {type: 'string'}
-
-          elsif type == Types::Integer
-            {type: 'integer'}
-
-          elsif type == Types::Float
-            {type: 'number'}
-
-          elsif type == Types::Boolean
-            {type: 'boolean'}
-
-          elsif type.is_a? Types::Time
-            {
-              type: 'string',
-              format: 'date'
-            }
-
-          elsif type.is_a? Types::Enum
-            {
-              type: 'string',
-              enum: type.values
-            }
-
-          elsif type.is_a? Types::Array
-            {
-              type: 'array',
-              items: serialize_type(type.type)
-            }
-
-          elsif type.is_a? Types::Model
-            serialize_form(type.model)
-
-          else
-            raise "Type not serializable #{type}"
+        def json_schema_for_type(type_hash)
+          case type_hash[:type]
+          when :string, :symbol then {type: 'string'}
+          when :integer         then {type: 'integer'}
+          when :float           then {type: 'number'}
+          when :boolean         then {type: 'boolean'}
+          when :time            then {type: 'string', format: 'date'}
+          when :enum            then {type: 'string', enum: type_hash[:values]}
+          when :array           then {type: 'array', items: json_schema_for_type(type_hash[:items])}
+          when :model           then json_schema_from_model_schema(type_hash[:schema])
+          when :hash            then {type: 'object'}
+          else                       {}
           end
         end
 
         def normalize_description(description)
           description.split("\n").map(&:strip).join(' ').strip
         end
-        
+
       end
     end
   end
