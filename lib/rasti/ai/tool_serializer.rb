@@ -66,7 +66,7 @@ module Rasti
           when :integer         then {type: 'integer'}
           when :float           then {type: 'number'}
           when :boolean         then {type: 'boolean'}
-          when :time            then {type: 'string', format: 'date'}
+          when :time            then json_schema_for_time_format(type_hash[:format])
           when :enum            then {type: 'string', enum: type_hash[:values]}
           when :array           then {type: 'array', items: json_schema_for_type(type_hash[:items])}
           when :model           then json_schema_from_model_schema(type_hash[:schema])
@@ -77,6 +77,21 @@ module Rasti
 
         def normalize_description(description)
           description.split("\n").map(&:strip).join(' ').strip
+        end
+
+        def json_schema_for_time_format(format)
+          return {type: 'string'} unless format.is_a?(::String)
+
+          has_date = format.include?('%F') || format.include?('%Y')
+          has_time = format.include?('%T') || format.include?('%H')
+
+          if has_date && has_time
+            {type: 'string', format: 'date-time'}
+          elsif has_date
+            {type: 'string', format: 'date'}
+          else
+            {type: 'string'}
+          end
         end
 
       end

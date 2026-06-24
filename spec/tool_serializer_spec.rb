@@ -115,7 +115,7 @@ describe Rasti::AI::ToolSerializer do
         tool_class.verify
       end
 
-      it 'Time' do
+      it 'Time with date and time' do
         form_class = Rasti::Form[timestamp: Rasti::Types::Time['%Y-%m-%dT%H:%M:%S%z']]
 
         tool_class = build_tool_class form_class
@@ -123,7 +123,37 @@ describe Rasti::AI::ToolSerializer do
         serialization = serializer.serialize tool_class
 
         expeted_serialization = build_serializaton param_name: 'timestamp', param_type: 'string'
-        expeted_serialization[:inputSchema][:properties][:timestamp][:format] = 'date'
+        expeted_serialization[:inputSchema][:properties][:timestamp][:format] = 'date-time'
+
+        assert_equal expeted_serialization, serialization
+
+        tool_class.verify
+      end
+
+      it 'Time with milliseconds and timezone' do
+        form_class = Rasti::Form[started_at: Rasti::Types::Time['%FT%T.%L%z']]
+
+        tool_class = build_tool_class form_class
+
+        serialization = serializer.serialize tool_class
+
+        expeted_serialization = build_serializaton param_name: 'started_at', param_type: 'string'
+        expeted_serialization[:inputSchema][:properties][:started_at][:format] = 'date-time'
+
+        assert_equal expeted_serialization, serialization
+
+        tool_class.verify
+      end
+
+      it 'Time with date only' do
+        form_class = Rasti::Form[day: Rasti::Types::Time['%Y-%m-%d']]
+
+        tool_class = build_tool_class form_class
+
+        serialization = serializer.serialize tool_class
+
+        expeted_serialization = build_serializaton param_name: 'day', param_type: 'string'
+        expeted_serialization[:inputSchema][:properties][:day][:format] = 'date'
 
         assert_equal expeted_serialization, serialization
 
