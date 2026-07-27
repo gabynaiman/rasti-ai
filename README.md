@@ -45,6 +45,14 @@ Rasti::AI.configure do |config|
   config.anthropic_api_key = 'sk-ant-12345' # Default ENV['ANTHROPIC_API_KEY']
   config.anthropic_default_model = 'claude-opus-4-5' # Default ENV['ANTHROPIC_DEFAULT_MODEL']
 
+  # OpenRouter
+  config.openrouter_api_key = 'sk-or-12345' # Default ENV['OPENROUTER_API_KEY']
+  config.openrouter_default_model = 'openai/gpt-4o-mini' # Default ENV['OPENROUTER_DEFAULT_MODEL']
+
+  # Huawei MaaS
+  config.huawei_maas_api_key = 'sk-maas-12345' # Default ENV['HUAWEI_MAAS_API_KEY']
+  config.huawei_maas_default_model = 'DeepSeek-V3' # Default ENV['HUAWEI_MAAS_DEFAULT_MODEL']
+
   # Usage tracking
   config.usage_tracker = ->(usage) { puts "#{usage.provider}: #{usage.input_tokens} in / #{usage.output_tokens} out" }
 end
@@ -55,8 +63,12 @@ end
 - **OpenAI** - `Rasti::AI::OpenAI::Assistant`
 - **Gemini** - `Rasti::AI::Gemini::Assistant`
 - **Anthropic** - `Rasti::AI::Anthropic::Assistant`
+- **OpenRouter** - `Rasti::AI::OpenRouter::Assistant`
+- **Huawei MaaS** - `Rasti::AI::HuaweiMaaS::Assistant`
 
-All providers share the same interface. The examples below use OpenAI, but apply equally to Gemini or Anthropic by replacing `OpenAI` with the provider name.
+All providers share the same interface. The examples below use OpenAI, but apply equally to any provider by replacing `OpenAI` with the provider name.
+
+OpenRouter and Huawei MaaS are [OpenAI-compatible](https://platform.openai.com/docs/api-reference/chat) APIs — they use the same chat completions format, tool calling, and Bearer token auth. Their clients and assistants inherit from the OpenAI provider, so everything in the examples below works identically.
 
 ### Assistant
 
@@ -428,9 +440,11 @@ assistant.call 'What is 5 plus 3?'
 The gem includes interactive chat tasks wired to the [Pipeworx](https://pipeworx.io) public weather MCP server (no auth required):
 
 ```bash
-OPENAI_API_KEY=sk-...    rake assistant:openai
-GEMINI_API_KEY=AIza...   rake assistant:gemini
-ANTHROPIC_API_KEY=sk-... rake assistant:anthropic
+OPENAI_API_KEY=sk-...       rake assistant:openai
+GEMINI_API_KEY=AIza...      rake assistant:gemini
+ANTHROPIC_API_KEY=sk-...    rake assistant:anthropic
+OPENROUTER_API_KEY=sk-or... rake assistant:openrouter
+HUAWEI_MAAS_API_KEY=sk-...  rake assistant:huawei_maas
 ```
 
 Type your message and press Enter. Type `exit` or `Ctrl+C` to quit.

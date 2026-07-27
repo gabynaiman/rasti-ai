@@ -19,9 +19,11 @@ require 'logger'
 WEATHER_MCP_URL = 'https://gateway.pipeworx.io/weather/mcp'.freeze
 
 PROVIDERS = {
-  'openai'    => {key: 'OPENAI_API_KEY',    klass: -> { Rasti::AI::OpenAI::Assistant }},
-  'gemini'    => {key: 'GEMINI_API_KEY',    klass: -> { Rasti::AI::Gemini::Assistant }},
-  'anthropic' => {key: 'ANTHROPIC_API_KEY', klass: -> { Rasti::AI::Anthropic::Assistant }}
+  'openai'     => {key: 'OPENAI_API_KEY',       klass: -> { Rasti::AI::OpenAI::Assistant }},
+  'gemini'     => {key: 'GEMINI_API_KEY',       klass: -> { Rasti::AI::Gemini::Assistant }},
+  'anthropic'  => {key: 'ANTHROPIC_API_KEY',    klass: -> { Rasti::AI::Anthropic::Assistant }},
+  'openrouter' => {key: 'OPENROUTER_API_KEY',   klass: -> { Rasti::AI::OpenRouter::Assistant }},
+  'huawei_maas'=> {key: 'HUAWEI_MAAS_API_KEY',  klass: -> { Rasti::AI::HuaweiMaaS::Assistant }}
 }.freeze
 
 def build_weather_mcp

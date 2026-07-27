@@ -76,6 +76,14 @@ lib/
         roles.rb
         client.rb
         assistant.rb
+      open_router/
+        roles.rb
+        client.rb
+        assistant.rb
+      huawei_maas/
+        roles.rb
+        client.rb
+        assistant.rb
       mcp/
         server.rb              # Rack middleware exposing tools via JSON-RPC 2.0
         tools_registry.rb      # per-request tool registry used by the middleware
@@ -98,6 +106,12 @@ spec/
     client_spec.rb
     assistant_spec.rb
   anthropic/
+    client_spec.rb
+    assistant_spec.rb
+  open_router/
+    client_spec.rb
+    assistant_spec.rb
+  huawei_maas/
     client_spec.rb
     assistant_spec.rb
   mcp/
@@ -140,6 +154,19 @@ spec/
 - Gemini: renames to `parameters`
 - Anthropic: renames to `input_schema`
 
+### OpenAI-compatible providers
+
+OpenRouter and Huawei MaaS speak the OpenAI chat completions protocol verbatim — same endpoint shape (`POST /chat/completions`), same request body, same response structure, same tool calling format, same Bearer token auth. Their clients and assistants inherit from the OpenAI provider and override only `base_url`, `default_api_key`, `default_model`, and `provider_name` (client) / `build_default_client` (assistant). No template methods are reimplemented.
+
+| | OpenRouter | Huawei MaaS |
+|---|---|---|
+| Base URL | `https://openrouter.ai/api/v1` | `https://api-ap-southeast-1.modelarts-maas.com/v2` |
+| Auth | `Authorization: Bearer {key}` | `Authorization: Bearer {key}` |
+| Config | `openrouter_api_key` / `openrouter_default_model` | `huawei_maas_api_key` / `huawei_maas_default_model` |
+| `provider` in Usage | `'open_router'` | `'huawei_maas'` |
+
+Thinking is inherited too: `reasoning_effort` is passed through as-is (same as OpenAI).
+
 
 ## Thinking levels
 
@@ -152,6 +179,8 @@ The base `Assistant` accepts `thinking: 'low' | 'medium' | 'high'` (validated on
 | `'high'` | `'high'` | `16_000` | `24_576` |
 
 For Gemini, `thinking_config` goes inside `generation_config` — the client doesn't need a new param. For OpenAI and Anthropic, it's a separate top-level param in the client method (`reasoning_effort:` and `thinking:` respectively).
+
+OpenRouter and Huawei MaaS inherit OpenAI's behavior: `thinking` is passed through as `reasoning_effort` with the same string values (`'low'`/`'medium'`/`'high'`). No `thinking_config` override is needed. Note that Huawei's models typically accept only `'high'` and `'max'` — `'high'` is the safe choice, and `'max'` is not expressible through the gem's universal levels.
 
 The loop does not change. Anthropic thinking blocks (`type: 'thinking'`) in responses are ignored by `parse_content` (looks for `type == 'text'`) and preserved automatically by `build_assistant_tool_calls_message` (passes full `response['content']` array).
 
@@ -189,6 +218,17 @@ config.<provider>_api_key       = 'test_<provider>_api_key'
 config.<provider>_default_model = '<provider>-test'
 ```
 
+### OpenAI-compatible providers
+
+If the new provider speaks the OpenAI chat completions protocol (same endpoint, request body, response shape, tool calling, Bearer auth), inherit from `Rasti::AI::OpenAI::Client` and `Rasti::AI::OpenAI::Assistant` instead of the abstract bases. The assistant only overrides `build_default_client`; the client overrides `base_url`, `default_api_key`, `default_model`, and `provider_name`. No template methods are reimplemented.
+
+The OpenAI client exposes two private hooks that make this possible without duplicating `chat_completions` or `parse_usage`:
+
+- **`default_model`** — returns the provider's default model from `Rasti::AI` config
+- **`provider_name`** — the string written to `Usage#provider`
+
+See `open_router/` and `huawei_maas/` for reference implementations.
+
 ### ⚠️ multi_require load order
 
 `require_relative_pattern 'ai/**/*'` loads files alphabetically. If the new provider name sorts before `assistant` or `client` (e.g. `anthropic` < `assistant`), the subclass is loaded before the base class and raises `NameError`.
@@ -203,8 +243,13 @@ require_relative 'ai/tool'
 require_relative 'ai/tool_serializer'
 require_relative 'ai/client'
 require_relative 'ai/assistant'
+require_relative 'ai/open_ai/roles'
+require_relative 'ai/open_ai/client'
+require_relative 'ai/open_ai/assistant'
 require_relative_pattern 'ai/**/*'   # duplicates are skipped by Ruby's require
 ```
+
+The OpenAI provider is also explicitly required because OpenAI-compatible providers (OpenRouter, Huawei MaaS) inherit from it, and some of their directory names sort before `open_ai` alphabetically (e.g. `huawei_maas` < `open_ai`).
 
 If you add a provider whose name sorts before `client` alphabetically, the same mechanism protects it.
 
@@ -519,6 +564,8 @@ It's a simple class (not a `Tool` subclass) that returns a plain string — cove
   rake assistant:openai      # OPENAI_API_KEY
   rake assistant:gemini      # GEMINI_API_KEY
   rake assistant:anthropic   # ANTHROPIC_API_KEY
+  rake assistant:openrouter  # OPENROUTER_API_KEY
+  rake assistant:huawei_maas # HUAWEI_MAAS_API_KEY
   ```
   Each task validates the key, writes logs to `log/<provider>.log`, connects to the [Pipeworx](https://pipeworx.io) public weather MCP server, and starts a `You:` / `Assistant:` prompt loop (`exit` or `Ctrl+C` to quit). The model can be overridden with the matching env variable (e.g. `OPENAI_DEFAULT_MODEL=gpt-4o`).
 

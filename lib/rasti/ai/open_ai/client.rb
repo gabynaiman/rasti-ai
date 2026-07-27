@@ -5,7 +5,7 @@ module Rasti
 
         def chat_completions(messages:, model:nil, tools:[], response_format:nil, reasoning_effort:nil)
           body = {
-            model: model || Rasti::AI.openai_default_model,
+            model: model || default_model,
             messages: messages,
             tools: tools,
             tool_choice: tools.empty? ? 'none' : 'auto'
@@ -23,7 +23,7 @@ module Rasti
           usage = response['usage']
           return unless usage
           Usage.new(
-            provider: 'open_ai',
+            provider: provider_name,
             model: response['model'],
             input_tokens: usage['prompt_tokens'],
             output_tokens: usage['completion_tokens'],
@@ -35,6 +35,14 @@ module Rasti
 
         def default_api_key
           Rasti::AI.openai_api_key
+        end
+
+        def default_model
+          Rasti::AI.openai_default_model
+        end
+
+        def provider_name
+          'open_ai'
         end
 
         def base_url

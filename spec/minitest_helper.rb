@@ -25,6 +25,12 @@ Rasti::AI.configure do |config|
 
   config.anthropic_api_key = 'test_anthropic_api_key'
   config.anthropic_default_model = 'claude-test'
+
+  config.openrouter_api_key = 'test_openrouter_api_key'
+  config.openrouter_default_model = 'openrouter-test'
+
+  config.huawei_maas_api_key = 'test_huawei_maas_api_key'
+  config.huawei_maas_default_model = 'huawei-test'
 end
 
 

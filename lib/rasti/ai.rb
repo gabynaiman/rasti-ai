@@ -21,6 +21,7 @@ module Rasti
     require_relative 'ai/tool_serializer'
     require_relative 'ai/client'
     require_relative 'ai/assistant'
+    require_relative_pattern 'ai/open_ai/*'
     require_relative_pattern 'ai/**/*'
 
     attr_config :logger, Logger.new(STDOUT)
@@ -37,6 +38,12 @@ module Rasti
 
     attr_config :anthropic_api_key, ENV['ANTHROPIC_API_KEY']
     attr_config :anthropic_default_model, ENV['ANTHROPIC_DEFAULT_MODEL']
+
+    attr_config :openrouter_api_key, ENV['OPENROUTER_API_KEY']
+    attr_config :openrouter_default_model, ENV['OPENROUTER_DEFAULT_MODEL']
+
+    attr_config :huawei_maas_api_key, ENV['HUAWEI_MAAS_API_KEY']
+    attr_config :huawei_maas_default_model, ENV['HUAWEI_MAAS_DEFAULT_MODEL']
 
     attr_config :usage_tracker, nil
 
