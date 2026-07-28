@@ -2,14 +2,17 @@ module Rasti
   module AI
     class Assistant
 
+      include ProviderAware
+
       attr_reader :state, :model, :thinking
 
       VALID_THINKING_LEVELS = %w[low medium high].freeze
 
-      def initialize(client:nil, json_schema:nil, state:nil, model:nil, thinking:nil, tools:[], mcp_servers:{}, logger:nil)
+      def initialize(client:nil, provider:nil, json_schema:nil, state:nil, model:nil, thinking:nil, tools:[], mcp_servers:{}, logger:nil)
         raise ArgumentError, "Invalid thinking level '#{thinking}'. Valid: #{VALID_THINKING_LEVELS.join(', ')}" if thinking && !VALID_THINKING_LEVELS.include?(thinking)
 
-        @client = client || build_default_client
+        @provider = provider
+        @client = client
         @json_schema = json_schema
         @state = state || AssistantState.new
         @model = model
@@ -50,13 +53,15 @@ module Rasti
 
       private
 
-      attr_reader :client, :json_schema, :tools, :serialized_tools, :logger
+      attr_reader :json_schema, :tools, :serialized_tools, :logger
+
+      def client
+        @client ||= provider.build_client
+      end
 
       def messages
         state.messages
       end
-
-      # --- Shared behavior ---
 
       def register_tools(tools)
         tools.each do |tool|
@@ -97,12 +102,6 @@ module Rasti
       rescue => ex
         logger.warn(self.class) { "Function failed: #{ex.message}\n#{ex.backtrace.join("\n")}" }
         "Error: #{ex.message}"
-      end
-
-      # --- Template methods ---
-
-      def build_default_client
-        raise NotImplementedError
       end
 
       def build_user_message(prompt)

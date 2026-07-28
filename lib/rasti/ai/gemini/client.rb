@@ -4,7 +4,7 @@ module Rasti
       class Client < Rasti::AI::Client
 
         def generate_content(contents:, model:nil, tools:[], system_instruction:nil, generation_config:nil)
-          model_name = model || Rasti::AI.gemini_default_model
+          model_name = model || default_model
 
           body = {contents: contents}
 
@@ -17,30 +17,8 @@ module Rasti
 
         private
 
-        def parse_usage(response)
-          usage = response['usageMetadata']
-          return unless usage
-          Usage.new(
-            provider: 'gemini',
-            model: response['modelVersion'],
-            input_tokens: usage['promptTokenCount'],
-            output_tokens: usage['candidatesTokenCount'],
-            cached_tokens: usage['cachedContentTokenCount'] || 0,
-            reasoning_tokens: usage['thoughtsTokenCount'] || 0,
-            raw: usage
-          )
-        end
-
-        def default_api_key
-          Rasti::AI.gemini_api_key
-        end
-
-        def base_url
-          'https://generativelanguage.googleapis.com/v1beta'
-        end
-
         def build_url(relative_url)
-          "#{base_url}#{relative_url}?key=#{api_key}"
+          "#{super}?key=#{api_key}"
         end
 
       end

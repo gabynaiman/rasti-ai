@@ -34,6 +34,14 @@ module Rasti
 
       end
 
+      class UnknownProvider < StandardError
+
+        def initialize(provider, valid_providers)
+          super "Unknown provider #{provider.inspect}. Valid providers: #{valid_providers.join(', ')}"
+        end
+
+      end
+
     end
   end
 end

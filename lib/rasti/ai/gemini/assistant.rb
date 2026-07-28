@@ -5,17 +5,7 @@ module Rasti
 
         ALLOWED_SCHEMA_FIELDS = %w[type description properties required enum items format nullable anyOf].freeze
 
-        THINKING_LEVELS = {
-          'low'    => {thinking_budget: 1_024}.freeze,
-          'medium' => {thinking_budget: 8_192}.freeze,
-          'high'   => {thinking_budget: 24_576}.freeze
-        }.freeze
-
         private
-
-        def build_default_client
-          Client.new
-        end
 
         def build_user_message(prompt)
           {role: Roles::USER, parts: [{text: prompt}]}
@@ -112,7 +102,7 @@ module Rasti
         end
 
         def thinking_config
-          THINKING_LEVELS[thinking]
+          Provider::THINKING_LEVELS[thinking]
         end
 
         def generation_config

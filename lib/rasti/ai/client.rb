@@ -2,9 +2,12 @@ module Rasti
   module AI
     class Client
 
+      include ProviderAware
+
       RETRYABLE_STATUS_CODES = [502, 503, 504].freeze
 
-      def initialize(api_key:nil, logger:nil, http_connect_timeout:nil, http_read_timeout:nil, http_max_retries:nil, usage_tracker:nil)
+      def initialize(provider:nil, api_key:nil, logger:nil, http_connect_timeout:nil, http_read_timeout:nil, http_max_retries:nil, usage_tracker:nil)
+        @provider = provider
         @api_key = api_key || default_api_key
         @logger = logger || Rasti::AI.logger
         @http_connect_timeout = http_connect_timeout || Rasti::AI.http_connect_timeout
@@ -17,22 +20,22 @@ module Rasti
 
       attr_reader :api_key, :logger, :http_connect_timeout, :http_read_timeout, :http_max_retries, :usage_tracker
 
+      def default_api_key
+        provider.default_api_key
+      end
+
+      def default_model
+        provider.default_model
+      end
+
       def track_usage(response)
         return unless usage_tracker
-        usage = parse_usage response
+        usage = provider.parse_usage response
         usage_tracker.call usage if usage
       end
 
-      def parse_usage(response)
-        raise NotImplementedError
-      end
-
-      def default_api_key
-        raise NotImplementedError
-      end
-
       def base_url
-        raise NotImplementedError
+        provider.base_url
       end
 
       def build_url(relative_url)

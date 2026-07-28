@@ -5,10 +5,6 @@ module Rasti
 
         private
 
-        def build_default_client
-          Client.new
-        end
-
         def build_user_message(prompt)
           {role: Roles::USER, content: prompt}
         end

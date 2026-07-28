@@ -4,27 +4,115 @@ Developer and agent reference. For usage examples see README.md.
 
 ## Architecture
 
+### Provider
+
+`Rasti::AI::Provider` is the entry point that makes provider and model a runtime value instead of a class reference. An instance holds the transport configuration (`api_key`, `usage_tracker`, `logger`, HTTP timeouts) plus the default `model`, and knows how to build the provider's `Client` and `Assistant`.
+
+The set of providers is **fixed** — there is no registry and third-party providers are not supported. Two frozen constants in the base class drive resolution:
+
+```ruby
+MODULES = {open_ai: 'OpenAI', gemini: 'Gemini', anthropic: 'Anthropic', open_router: 'OpenRouter', huawei_maas: 'HuaweiMaaS'}.freeze
+ALIASES = {openai: :open_ai, openrouter: :open_router, huawei: :huawei_maas}.freeze
+```
+
+`Provider.build(name, **options)` normalizes the name (`downcase.to_sym`), applies aliases, and resolves the class with `AI.const_get(MODULES[key])::Provider` — at call time, so there is no load-order constraint. Passing an existing `Provider` instance returns it untouched. Unknown names raise `Errors::UnknownProvider`.
+
+`client_class` / `assistant_class` are derived from `name` through `provider_module`, so `OpenRouter::Provider` (which inherits from `OpenAI::Provider`) gets `OpenRouter::Client` and `OpenRouter::Assistant` without overriding anything.
+
+#### Provider — methods to implement (7 total)
+
+Public — also consumed by the `Client`:
+
+```ruby
+def name                    # :open_ai — also used by provider_module
+def default_model           # from Rasti::AI config
+def default_api_key         # from Rasti::AI config
+def base_url                # e.g. 'https://api.anthropic.com/v1'
+def parse_usage(response)   # raw response => Usage or nil
+```
+
+Private — the request/response translation:
+
+```ruby
+def request(client:, messages:, system:, model:, json_schema:, thinking:)  # calls the client, returns raw response
+def encode_message(message) # {role:, content:} with generic roles => provider message
+def parse_content(response) # raw response => String
+```
+
+Plus a `THINKING_LEVELS` constant (see [Thinking levels](#thinking-levels)). OpenAI-compatible providers only override `name`, `default_model` and `default_api_key`.
+
+#### Public API
+
+- **`Provider#generate_text(prompt:/messages:, system:, model:, json_schema:, thinking:, client:)`** — one request, no tools, no loop. Normalizes generic-role messages, extracts `system` messages into the provider's system field, and returns a `Result`.
+- **`Provider#create_assistant(state:, system:, model:, tools:, mcp_servers:, json_schema:, thinking:, client:)`** — builds the provider-specific `Assistant`. `system:` is sugar for `state: AssistantState.new(context: ...)`; passing both raises `ArgumentError`.
+- **`Provider#build_client`** — the provider's `Client` with the instance's transport options.
+- **`Rasti::AI.provider`, `Rasti::AI.generate_text`, `Rasti::AI.create_assistant`** — thin module-level wrappers. They split transport options (used to build the provider) from call options (forwarded to the provider method).
+
+`model:` accepts `'provider:model'` (split on the first `:`), but only when `provider:` is not given explicitly. The provider falls back to `Rasti::AI.default_provider` (`ENV['AI_DEFAULT_PROVIDER']`); nil raises `ArgumentError`. `model` on a `Provider` is only its default — every call accepts a `model:` override.
+
+The private helpers `build_provider` and `split_provider_and_model` live in a `class << self` block with `private` inside it.
+
+### Result
+
+`Rasti::AI::Result` (a `Rasti::Model`) is the normalized output of `generate_text`:
+
+| Attribute | Content |
+|---|---|
+| `content` | The text the model returned, or the JSON string when `json_schema` is used |
+| `usage` | A `Usage` instance, from `Provider#parse_usage` |
+| `raw` | The untouched provider payload |
+
+`Provider#parse_usage` is public because the `Client` also calls it, from `track_usage`, on every response of the assistant's tool loop.
+
+`Assistant#call` still returns a plain `String` — unchanged for compatibility.
+
+### Generic roles
+
+`Rasti::AI::Roles` (`USER`, `ASSISTANT`, `SYSTEM`) is the provider-agnostic vocabulary used by `generate_text(messages:)`. Each `Provider#encode_message` translates it (Gemini maps `assistant` to its `model` role; `system` messages are pulled out of the array by `split_system` and passed through the provider's system field).
+
+The per-provider `Roles` modules still exist and are what the `Assistant` classes use. Inside `Rasti::AI::<Provider>::*`, a bare `Roles::USER` resolves to the provider's module by lexical scope — use the fully qualified `Rasti::AI::Roles::USER` for the generic one.
+
+> ⚠️ Do not reference a provider's `Roles` constants in a constant definition inside `<provider>/provider.rb`: `multi_require` loads `provider.rb` **before** `roles.rb` (alphabetical order). Resolve them inside method bodies instead (see `Gemini::Provider#encode_role`).
+
+#### Known duplication
+
+`Anthropic::Provider` reimplements the structured-output tool and its parsing, which also live in `Anthropic::Assistant` (Anthropic has no native `json_schema` support). Same for Gemini's `generation_config`. This is temporary: once the `Assistant` is rebuilt on top of `Provider#request`, both collapse into one. Keep them in sync until then.
+
 ### Template method pattern
 
 `Rasti::AI::Client` and `Rasti::AI::Assistant` are abstract base classes. Provider-specific subclasses implement a fixed set of methods; all shared logic (HTTP retries, tool caching, the request/response loop) lives in the base.
 
 #### Client — methods to implement
 
+Nothing is mandatory. A client only defines the provider's endpoint method (`chat_completions`, `messages`, `generate_content`) and, if the API needs credentials in the request, one of:
+
 ```ruby
-def default_api_key          # reads from Rasti::AI config
-def base_url                 # e.g. 'https://api.anthropic.com/v1'
-def parse_usage(response)    # returns a Usage instance or nil
-# optionally override:
 def build_request(uri)       # super + add auth headers
-def build_url(relative_url)  # super unless URL needs query params (e.g. Gemini key)
+def build_url(relative_url)  # super + query params (e.g. Gemini key)
 ```
+
+Everything else — API key, default model, base URL, usage parsing — lives in the `Provider`, and the client delegates (`provider` and `provider_module` come from the `ProviderAware` module, shared with `Assistant`):
+
+```ruby
+def default_api_key ; provider.default_api_key ; end
+def default_model   ; provider.default_model   ; end
+def base_url        ; provider.base_url        ; end
+def track_usage(response) ; ... provider.parse_usage(response) ... ; end
+```
+
+As a result `OpenRouter::Client` and `HuaweiMaaS::Client` have **empty bodies**. Keep them: they are the namespace marker that `Provider#client_class` and `ProviderAware#provider_module` resolve against, and they keep `Rasti::AI::<Provider>::Client.new` working as a documented entry point.
+
+`Provider#build_client` injects itself (`provider: self`). When a client is built standalone (`OpenAI::Client.new`) the private `provider` method lazily builds the provider of its own namespace, derived from the class name — so nothing breaks and no provider-specific config is duplicated.
+
+> ⚠️ In `Client#initialize`, the `provider:` keyword argument shadows the private `provider` method. That's why the fallback goes through `default_api_key` instead of calling `provider.default_api_key` inline.
+
+> ⚠️ The class-name derivation means an anonymous client subclass (`Class.new(OpenAI::Client)`) has no provider. Subclass explicitly if you need one in a test.
 
 The base `post` method handles JSON serialization, logging, retries on network errors and 5xx, and calls `track_usage` after each successful response.
 
-#### Assistant — methods to implement (12 total)
+#### Assistant — methods to implement (11 total)
 
 ```ruby
-def build_default_client           # Client.new
 def build_user_message(prompt)     # {role: ..., content: prompt}
 def build_assistant_message(content)
 def build_assistant_tool_calls_message(response)
@@ -39,6 +127,10 @@ def extract_tool_name(wrapped)     # string name from wrapped tool hash
 ```
 
 The base `call` loop: add user message → request completion → if tool calls: execute each, add results, loop → else: return content.
+
+The client is **not** a template method: the base `Assistant` gets it from its provider (`provider.build_client`), lazily, so nothing is built until the first request. As with `Client`, `Provider#create_assistant` injects `provider: self`, and direct instantiation (`Rasti::AI::OpenRouter::Assistant.new`) falls back to the namespace derivation.
+
+That leaves `OpenRouter::Assistant` and `HuaweiMaaS::Assistant` with **empty bodies** — like their clients, they survive as the documented public entry point per provider and as the namespace marker `Provider#assistant_class` resolves.
 
 #### Tool — optional base class
 
@@ -68,22 +160,31 @@ lib/
         roles.rb
         client.rb
         assistant.rb
+        provider.rb
       gemini/
         roles.rb
         client.rb
         assistant.rb
+        provider.rb
       anthropic/
         roles.rb
         client.rb
         assistant.rb
+        provider.rb
       open_router/
         roles.rb
         client.rb
         assistant.rb
+        provider.rb
       huawei_maas/
         roles.rb
         client.rb
         assistant.rb
+        provider.rb
+      provider.rb              # entry point: resolves provider/model, builds client + assistant, generate_text
+      provider_aware.rb        # shared lazy provider lookup by namespace (Client + Assistant)
+      result.rb                # normalized generate_text output (content, usage, raw)
+      roles.rb                 # generic roles (user, assistant, system)
       mcp/
         server.rb              # Rack middleware exposing tools via JSON-RPC 2.0
         tools_registry.rb      # per-request tool registry used by the middleware
@@ -139,6 +240,7 @@ spec/
 | | OpenAI | Gemini | Anthropic |
 |---|---|---|---|
 | Auth | `Authorization: Bearer {key}` | `?key=` query param | `x-api-key: {key}` + `anthropic-version: 2023-06-01` header |
+| Usage payload | `usage.prompt_tokens` / `completion_tokens` | `usageMetadata.promptTokenCount` / `candidatesTokenCount` | `usage.input_tokens` / `output_tokens` |
 | Endpoint | `POST /chat/completions` | `POST /models/{model}:generateContent` | `POST /messages` |
 | System prompt | message with `role: system` | top-level `system_instruction` | top-level `system` string |
 | `max_tokens` | optional | optional | **required** (default 4096 in client) |
@@ -156,7 +258,7 @@ spec/
 
 ### OpenAI-compatible providers
 
-OpenRouter and Huawei MaaS speak the OpenAI chat completions protocol verbatim — same endpoint shape (`POST /chat/completions`), same request body, same response structure, same tool calling format, same Bearer token auth. Their clients and assistants inherit from the OpenAI provider and override only `base_url`, `default_api_key`, `default_model`, and `provider_name` (client) / `build_default_client` (assistant). No template methods are reimplemented.
+OpenRouter and Huawei MaaS speak the OpenAI chat completions protocol verbatim — same endpoint shape (`POST /chat/completions`), same request body, same response structure, same tool calling format, same Bearer token auth. They inherit from the OpenAI provider; their whole implementation is `name` / `default_model` / `default_api_key` / `base_url` on the provider. Their clients and assistants are empty subclasses.
 
 | | OpenRouter | Huawei MaaS |
 |---|---|---|
@@ -178,6 +280,8 @@ The base `Assistant` accepts `thinking: 'low' | 'medium' | 'high'` (validated on
 | `'medium'` | `'medium'` | `8_000` | `8_192` |
 | `'high'` | `'high'` | `16_000` | `24_576` |
 
+The `THINKING_LEVELS` table lives in each **`Provider`** class (it's provider metadata, not assistant behavior). `Assistant#thinking_config` reads it as `Provider::THINKING_LEVELS[thinking]` — resolved by lexical scope to the provider's own class. `Provider#thinking_config` also validates the level against the table's keys.
+
 For Gemini, `thinking_config` goes inside `generation_config` — the client doesn't need a new param. For OpenAI and Anthropic, it's a separate top-level param in the client method (`reasoning_effort:` and `thinking:` respectively).
 
 OpenRouter and Huawei MaaS inherit OpenAI's behavior: `thinking` is passed through as `reasoning_effort` with the same string values (`'low'`/`'medium'`/`'high'`). No `thinking_config` override is needed. Note that Huawei's models typically accept only `'high'` and `'max'` — `'high'` is the safe choice, and `'max'` is not expressible through the gem's universal levels.
@@ -187,17 +291,22 @@ The loop does not change. Anthropic thinking blocks (`type: 'thinking'`) in resp
 
 ## Adding a new provider
 
-Create three files under `lib/rasti/ai/<provider>/`:
+Create four files under `lib/rasti/ai/<provider>/`:
 
 1. **`roles.rb`** — string constants for role names
-2. **`client.rb`** — inherits `Rasti::AI::Client`, implements the main API method + private helpers
-3. **`assistant.rb`** — inherits `Rasti::AI::Assistant`, implements all 12 template methods
+2. **`client.rb`** — inherits `Rasti::AI::Client`, implements the main API method + auth
+3. **`assistant.rb`** — inherits `Rasti::AI::Assistant`, implements all 11 template methods
+4. **`provider.rb`** — inherits `Rasti::AI::Provider`, implements the 7 methods + `THINKING_LEVELS`
 
 Add to `lib/rasti/ai.rb`:
 ```ruby
 attr_config :<provider>_api_key,       ENV['<PROVIDER>_API_KEY']
 attr_config :<provider>_default_model, ENV['<PROVIDER>_DEFAULT_MODEL']
 ```
+
+Add the provider to `MODULES` (and `ALIASES` if the name has a common alternative spelling) in `lib/rasti/ai/provider.rb`, and create a fourth file `provider.rb` implementing the 6 methods listed in [Provider](#provider).
+
+The client must expose a private `default_model` returning the configured default (all providers do) and a **public** `parse_usage`.
 
 If the new provider supports thinking, define a `THINKING_LEVELS` constant and a private `thinking_config` method (see existing providers). The base constructor already validates and exposes `thinking`.
 
@@ -220,12 +329,13 @@ config.<provider>_default_model = '<provider>-test'
 
 ### OpenAI-compatible providers
 
-If the new provider speaks the OpenAI chat completions protocol (same endpoint, request body, response shape, tool calling, Bearer auth), inherit from `Rasti::AI::OpenAI::Client` and `Rasti::AI::OpenAI::Assistant` instead of the abstract bases. The assistant only overrides `build_default_client`; the client overrides `base_url`, `default_api_key`, `default_model`, and `provider_name`. No template methods are reimplemented.
+If the new provider speaks the OpenAI chat completions protocol (same endpoint, request body, response shape, tool calling, Bearer auth), inherit from `Rasti::AI::OpenAI::Client`, `Rasti::AI::OpenAI::Assistant` and `Rasti::AI::OpenAI::Provider` instead of the abstract bases:
 
-The OpenAI client exposes two private hooks that make this possible without duplicating `chat_completions` or `parse_usage`:
+- **client** — empty body, just the subclass declaration
+- **assistant** — empty body, just the subclass declaration
+- **provider** — overrides `name`, `default_model`, `default_api_key` and `base_url`; inherits `request`, `encode_message`, `parse_content`, `parse_usage` and `THINKING_LEVELS`
 
-- **`default_model`** — returns the provider's default model from `Rasti::AI` config
-- **`provider_name`** — the string written to `Usage#provider`
+`Usage#provider` comes from `Provider#name`, so nothing else needs to know the provider's identity.
 
 See `open_router/` and `huawei_maas/` for reference implementations.
 

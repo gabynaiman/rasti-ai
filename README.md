@@ -53,6 +53,9 @@ Rasti::AI.configure do |config|
   config.huawei_maas_api_key = 'sk-maas-12345' # Default ENV['HUAWEI_MAAS_API_KEY']
   config.huawei_maas_default_model = 'DeepSeek-V3' # Default ENV['HUAWEI_MAAS_DEFAULT_MODEL']
 
+  # Default provider used by Rasti::AI.create_assistant and Rasti::AI.generate_text
+  config.default_provider = :open_ai # Default ENV['AI_DEFAULT_PROVIDER']
+
   # Usage tracking
   config.usage_tracker = ->(usage) { puts "#{usage.provider}: #{usage.input_tokens} in / #{usage.output_tokens} out" }
 end
@@ -70,7 +73,106 @@ All providers share the same interface. The examples below use OpenAI, but apply
 
 OpenRouter and Huawei MaaS are [OpenAI-compatible](https://platform.openai.com/docs/api-reference/chat) APIs — they use the same chat completions format, tool calling, and Bearer token auth. Their clients and assistants inherit from the OpenAI provider, so everything in the examples below works identically.
 
+### Choosing provider and model at runtime
+
+Instead of referencing a provider-specific class, the provider can be a parameter or come from the configuration. This makes swapping models a config change instead of a code change.
+
+```ruby
+# One-shot text generation
+result = Rasti::AI.generate_text prompt: 'who is the best player', provider: :open_ai
+
+result.content # => 'The best player is Lionel Messi'
+result.usage   # => Rasti::AI::Usage
+result.raw     # => raw provider response
+
+# Provider and model
+Rasti::AI.generate_text prompt: 'who is the best player', provider: :anthropic, model: 'claude-sonnet-4-5'
+
+# Both in a single string — handy for ENV vars
+Rasti::AI.generate_text prompt: 'who is the best player', model: ENV['AI_MODEL'] # 'gemini:gemini-2.0-flash'
+
+# Provider from configuration (Rasti::AI.default_provider)
+Rasti::AI.generate_text prompt: 'who is the best player'
+```
+
+The response is normalized across providers: `content` is the text the model returned (or the JSON string when `json_schema:` is used), `usage` is a `Rasti::AI::Usage`, and `raw` is the untouched provider payload as an escape hatch.
+
+Instead of a single `prompt:`, a conversation can be passed with `messages:` using generic roles — each provider translates them to its own format (`assistant` becomes `model` on Gemini, `system` becomes `system_instruction`, etc.):
+
+```ruby
+Rasti::AI.generate_text provider: :gemini, messages: [
+  {role: Rasti::AI::Roles::SYSTEM, content: 'Act as sports journalist'},
+  {role: Rasti::AI::Roles::USER, content: 'who is the best player'},
+  {role: Rasti::AI::Roles::ASSISTANT, content: 'Lionel Messi'},
+  {role: Rasti::AI::Roles::USER, content: 'how many goals did he score?'}
+]
+```
+
+`generate_text` is a single request without tools. For tool calling and multi-turn conversations use an assistant — `Rasti::AI.create_assistant` returns the provider-specific one, so everything documented below (tools, state, structured responses, thinking) works the same:
+
+```ruby
+assistant = Rasti::AI.create_assistant provider: :open_ai,
+                                       model: 'gpt-4o',
+                                       system: 'Act as sports journalist',
+                                       tools: [GetCurrentWeather.new],
+                                       mcp_servers: {weather: mcp_client},
+                                       thinking: 'medium'
+
+assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
+assistant # => #<Rasti::AI::OpenAI::Assistant>
+```
+
+Both methods accept the same options:
+
+| Option | Purpose | `generate_text` | `create_assistant` |
+|---|---|---|---|
+| `provider:` | `:open_ai`, `:gemini`, `:anthropic`, `:open_router`, `:huawei_maas` (aliases: `:openai`, `:openrouter`, `:huawei`). Defaults to `Rasti::AI.default_provider` | ✓ | ✓ |
+| `model:` | Model name, or `'provider:model'` to set both. Defaults to the provider's configured default model | ✓ | ✓ |
+| `api_key:` | Overrides the configured API key — useful for multi-tenant apps | ✓ | ✓ |
+| `usage_tracker:` | Per-call usage tracker lambda | ✓ | ✓ |
+| `logger:` | Overrides the configured logger | ✓ | ✓ |
+| `http_connect_timeout:`, `http_read_timeout:`, `http_max_retries:` | Per-call HTTP settings | ✓ | ✓ |
+| `client:` | A pre-built client (skips building one from the options above) | ✓ | ✓ |
+| `json_schema:` | Schema for structured responses | ✓ | ✓ |
+| `thinking:` | `'low'`, `'medium'` or `'high'` | ✓ | ✓ |
+| `prompt:` | A single user message | ✓ | |
+| `messages:` | Conversation with generic roles — mutually exclusive with `prompt:` | ✓ | |
+| `system:` | System prompt. On `create_assistant` it's a shortcut for `state: AssistantState.new(context: ...)` | ✓ | ✓ |
+| `state:` | An existing `AssistantState` to continue a conversation | | ✓ |
+| `tools:` | Array of tool instances | | ✓ |
+| `mcp_servers:` | Hash of `{name => MCP::Client}` | | ✓ |
+
+### Provider
+
+A provider bundles everything needed to reach a model: credentials, default model, usage tracking and HTTP settings. `Rasti::AI.provider` returns a reusable instance — useful when the same credentials are used for many calls, e.g. per tenant:
+
+```ruby
+provider = Rasti::AI.provider :anthropic,
+                              model: 'claude-sonnet-4-5',
+                              api_key: tenant.anthropic_key,
+                              usage_tracker: ->(usage) { tenant.track usage },
+                              http_read_timeout: 300
+
+provider.name  # => :anthropic
+provider.model # => 'claude-sonnet-4-5'
+
+provider.generate_text prompt: 'who is the best player'          # => Rasti::AI::Result
+provider.generate_text prompt: '...', model: 'claude-opus-4-5'   # per call model override
+provider.create_assistant tools: [GetCurrentWeather.new]         # => Rasti::AI::Anthropic::Assistant
+provider.build_client                                            # => Rasti::AI::Anthropic::Client
+```
+
+The available providers are fixed: `Rasti::AI::Provider.names # => [:open_ai, :gemini, :anthropic, :open_router, :huawei_maas]`. An unknown name raises `Rasti::AI::Errors::UnknownProvider`.
+
+A provider instance can also be passed directly as `provider:` to the module-level methods:
+
+```ruby
+Rasti::AI.generate_text provider: provider, prompt: 'who is the best player'
+```
+
 ### Assistant
+
+Provider-specific classes keep working and are fully equivalent:
 
 ```ruby
 assistant = Rasti::AI::OpenAI::Assistant.new

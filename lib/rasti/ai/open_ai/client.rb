@@ -11,43 +11,13 @@ module Rasti
             tool_choice: tools.empty? ? 'none' : 'auto'
           }
 
-          body[:response_format]   = response_format   unless response_format.nil?
-          body[:reasoning_effort]  = reasoning_effort  if reasoning_effort
+          body[:response_format] = response_format if response_format
+          body[:reasoning_effort] = reasoning_effort if reasoning_effort
 
           post '/chat/completions', body
         end
 
         private
-
-        def parse_usage(response)
-          usage = response['usage']
-          return unless usage
-          Usage.new(
-            provider: provider_name,
-            model: response['model'],
-            input_tokens: usage['prompt_tokens'],
-            output_tokens: usage['completion_tokens'],
-            cached_tokens: usage.dig('prompt_tokens_details', 'cached_tokens') || 0,
-            reasoning_tokens: usage.dig('completion_tokens_details', 'reasoning_tokens') || 0,
-            raw: usage
-          )
-        end
-
-        def default_api_key
-          Rasti::AI.openai_api_key
-        end
-
-        def default_model
-          Rasti::AI.openai_default_model
-        end
-
-        def provider_name
-          'open_ai'
-        end
-
-        def base_url
-          'https://api.openai.com/v1'
-        end
 
         def build_request(uri)
           request = super

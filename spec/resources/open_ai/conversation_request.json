@@ -1,0 +1,1 @@
+{"model":"<%= model %>","messages":[{"role":"user","content":"who is the best player"},{"role":"assistant","content":"Lionel Messi"},{"role":"user","content":"<%= prompt %>"}],"tools":[],"tool_choice":"none"}
