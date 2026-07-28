@@ -108,7 +108,11 @@ Rasti::AI.generate_text provider: :gemini, messages: [
 ]
 ```
 
-`generate_text` is a single request without tools. For tool calling and multi-turn conversations use an assistant — `Rasti::AI.create_assistant` returns the provider-specific one, so everything documented below (tools, state, structured responses, thinking) works the same:
+`generate_text` is a single request without tools. For tool calling, multi-turn conversations and stateful interactions use an assistant.
+
+### Assistants — tool calling and multi-turn conversations
+
+`Rasti::AI.create_assistant` is the primary entry point for assistants. It resolves the provider at runtime — just like `generate_text` — and returns the provider-specific `Assistant` instance, so swapping models is a config change instead of a code change. Everything documented below (tools, state, structured responses, thinking, MCP) works the same across all providers:
 
 ```ruby
 assistant = Rasti::AI.create_assistant provider: :open_ai,
@@ -120,6 +124,14 @@ assistant = Rasti::AI.create_assistant provider: :open_ai,
 
 assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
 assistant # => #<Rasti::AI::OpenAI::Assistant>
+```
+
+Omit `provider:` to use `Rasti::AI.default_provider`, or pass `'provider:model'` as `model:` to set both in one string — handy for ENV-driven configuration:
+
+```ruby
+assistant = Rasti::AI.create_assistant model: ENV['AI_MODEL'], # 'anthropic:claude-sonnet-4-5'
+                                       system: 'Act as sports journalist',
+                                       tools: [GetCurrentWeather.new]
 ```
 
 Both methods accept the same options:
@@ -172,10 +184,21 @@ Rasti::AI.generate_text provider: provider, prompt: 'who is the best player'
 
 ### Assistant
 
-Provider-specific classes keep working and are fully equivalent:
+`Rasti::AI.create_assistant` is the recommended way to build an assistant — it keeps the provider as a runtime value and shares the same options as `generate_text`:
 
 ```ruby
-assistant = Rasti::AI::OpenAI::Assistant.new
+assistant = Rasti::AI.create_assistant provider: :open_ai,
+                                       system: 'Act as sports journalist',
+                                       tools: [GetCurrentWeather.new]
+
+assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
+```
+
+Provider-specific classes are also available and are fully equivalent — useful when the provider is fixed by the application:
+
+```ruby
+assistant = Rasti::AI::OpenAI::Assistant.new system: 'Act as sports journalist',
+                                             tools: [GetCurrentWeather.new]
 assistant.call 'who is the best player' # => 'The best player is Lionel Messi'
 ```
 
@@ -240,7 +263,7 @@ tools = [
   GetCurrentWeather.new
 ]
 
-assistant = Rasti::AI::OpenAI::Assistant.new tools: tools
+assistant = Rasti::AI.create_assistant provider: :open_ai, tools: tools
 
 assistant.call 'what time is it' # => 'The current time is 3:03 PM on April 28, 2025.'
 
@@ -251,7 +274,7 @@ assistant.call 'what is the weather in Buenos Aires' # => 'In Buenos Aires it is
 ```ruby
 state = Rasti::AI::AssistantState.new context: 'Act as sports journalist'
 
-assistant = Rasti::AI::OpenAI::Assistant.new state: state
+assistant = Rasti::AI.create_assistant provider: :open_ai, state: state
 
 assistant.call 'who is the best player'
 
@@ -259,14 +282,15 @@ state.context  # => 'Act as sports journalist'
 state.messages # Array of provider-specific message hashes
 ```
 
-The state keeps the conversation history, enabling multi-turn interactions. It also caches tool call results to avoid duplicate executions.
+The state keeps the conversation history, enabling multi-turn interactions. It also caches tool call results to avoid duplicate executions. The `system:` option is a shortcut for `state: AssistantState.new(context: ...)`.
 
 ### Structured responses (JSON Schema)
 ```ruby
-assistant = Rasti::AI::OpenAI::Assistant.new json_schema: {
-  player: 'string',
-  sport: 'string'
-}
+assistant = Rasti::AI.create_assistant provider: :open_ai,
+                                       json_schema: {
+                                         player: 'string',
+                                         sport: 'string'
+                                       }
 
 response = assistant.call 'who is the best player'
 JSON.parse response # => {"player" => "Lionel Messi", "sport" => "Football"}
@@ -275,7 +299,7 @@ JSON.parse response # => {"player" => "Lionel Messi", "sport" => "Football"}
 ### Custom model and client
 ```ruby
 # Override model
-assistant = Rasti::AI::OpenAI::Assistant.new model: 'gpt-4o'
+assistant = Rasti::AI.create_assistant provider: :open_ai, model: 'gpt-4o'
 
 # Custom client with per-client HTTP settings
 client = Rasti::AI::OpenAI::Client.new(
@@ -284,15 +308,15 @@ client = Rasti::AI::OpenAI::Client.new(
   http_max_retries: 5
 )
 
-assistant = Rasti::AI::OpenAI::Assistant.new client: client
+assistant = Rasti::AI.create_assistant provider: :open_ai, client: client
 
-# Anthropic client
+# Anthropic client — Claude can be slow on long responses
 client = Rasti::AI::Anthropic::Client.new(
   http_connect_timeout: 120,
-  http_read_timeout: 300  # Claude can be slow on long responses
+  http_read_timeout: 300
 )
 
-assistant = Rasti::AI::Anthropic::Assistant.new client: client
+assistant = Rasti::AI.create_assistant provider: :anthropic, client: client
 ```
 
 ### Thinking / extended reasoning
@@ -300,7 +324,7 @@ assistant = Rasti::AI::Anthropic::Assistant.new client: client
 Some providers support extended reasoning ("thinking") to improve accuracy on complex tasks. Pass `thinking:` with a level of `'low'`, `'medium'`, or `'high'` when creating an assistant:
 
 ```ruby
-assistant = Rasti::AI::Anthropic::Assistant.new thinking: 'high'
+assistant = Rasti::AI.create_assistant provider: :anthropic, thinking: 'high'
 assistant.call 'Solve this step by step: ...'
 ```
 
@@ -315,7 +339,7 @@ tracked_usage = []
 tracker = ->(usage) { tracked_usage << usage }
 
 client = Rasti::AI::OpenAI::Client.new usage_tracker: tracker
-assistant = Rasti::AI::OpenAI::Assistant.new client: client
+assistant = Rasti::AI.create_assistant provider: :open_ai, client: client
 assistant.call 'who is the best player'
 
 usage = tracked_usage.first
@@ -528,10 +552,8 @@ You can use MCP clients as tools for any assistant:
 ```ruby
 mcp_client = Rasti::AI::MCP::Client.new url: 'https://mcp.server.ai/mcp'
 
-
-assistant = Rasti::AI::OpenAI::Assistant.new(
-  mcp_servers: {my_mcp: mcp_client}
-)
+assistant = Rasti::AI.create_assistant provider: :open_ai,
+                                       mcp_servers: {my_mcp: mcp_client}
 
 # The assistant can now call tools from the MCP server
 assistant.call 'What is 5 plus 3?'
