@@ -146,7 +146,7 @@ Both methods accept the same options:
 | `http_connect_timeout:`, `http_read_timeout:`, `http_max_retries:` | Per-call HTTP settings | ✓ | ✓ |
 | `client:` | A pre-built client (skips building one from the options above) | ✓ | ✓ |
 | `json_schema:` | Schema for structured responses | ✓ | ✓ |
-| `thinking:` | `'low'`, `'medium'` or `'high'` | ✓ | ✓ |
+| `thinking:` | `'none'`, `'low'`, `'medium'` or `'high'` | ✓ | ✓ |
 | `prompt:` | A single user message | ✓ | |
 | `messages:` | Conversation with generic roles — mutually exclusive with `prompt:` | ✓ | |
 | `system:` | System prompt. On `create_assistant` it's a shortcut for `state: AssistantState.new(context: ...)` | ✓ | ✓ |
@@ -329,6 +329,14 @@ assistant.call 'Solve this step by step: ...'
 ```
 
 The level controls how much computation the model can spend reasoning before responding. Higher levels may improve answer quality at the cost of more tokens and latency. Not all models support thinking — check your provider's documentation.
+
+Omitting `thinking:` leaves the decision to the model, and many current models reason by default. Pass `thinking: 'none'` to disable reasoning explicitly. Some models require it — `gpt-6-luna`, for example, rejects function tools unless reasoning is disabled:
+
+```ruby
+assistant = Rasti::AI.create_assistant provider: :open_ai, model: 'gpt-6-luna', tools: [GetCurrentWeather.new], thinking: 'none'
+```
+
+Huawei MaaS does not accept `'none'` and returns an error.
 
 ### Usage tracking
 

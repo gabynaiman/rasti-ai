@@ -125,6 +125,21 @@ describe Rasti::AI::Gemini::Assistant do
       assert_equal answer, response
     end
 
+    it 'Thinking none' do
+      body = read_json_resource('gemini/basic_request.json', prompt: question)
+      body['generation_config'] = {'thinking_config' => {'thinking_budget' => 0}}
+
+      stub_request(:post, api_url)
+        .with(body: JSON.dump(body))
+        .to_return(body: read_resource('gemini/basic_response.json', content: answer))
+
+      assistant = Rasti::AI::Gemini::Assistant.new thinking: 'none'
+
+      response = assistant.call question
+
+      assert_equal answer, response
+    end
+
     it 'JSON Schema' do
       json_schema = {answer: 'Response answer'}
       json_answer = "{\\\"answer\\\": \\\"#{answer}\\\"}"

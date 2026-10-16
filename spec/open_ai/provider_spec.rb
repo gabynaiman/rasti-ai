@@ -62,6 +62,16 @@ describe Rasti::AI::OpenAI::Provider do
     assert_equal answer, result.content
   end
 
+  it 'Generate text with thinking none' do
+    body = basic_body(Rasti::AI.openai_default_model).merge(reasoning_effort: 'none')
+
+    stub_chat_completions 'https://api.openai.com/v1/chat/completions', body
+
+    result = Rasti::AI.provider(:open_ai).generate_text prompt: question, thinking: 'none'
+
+    assert_equal answer, result.content
+  end
+
   describe 'OpenAI compatible providers' do
 
     it 'OpenRouter' do

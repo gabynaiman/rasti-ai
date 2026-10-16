@@ -4,6 +4,7 @@ module Rasti
       class Provider < Rasti::AI::Provider
 
         THINKING_LEVELS = {
+          'none' => 'none'.freeze,
           'low' => 'low'.freeze,
           'medium' => 'medium'.freeze,
           'high' => 'high'.freeze

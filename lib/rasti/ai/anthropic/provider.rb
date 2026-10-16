@@ -6,6 +6,7 @@ module Rasti
         STRUCTURED_OUTPUT_TOOL = 'structured_output'.freeze
 
         THINKING_LEVELS = {
+          'none' => nil,
           'low' => {type: 'enabled', budget_tokens: 1_024}.freeze,
           'medium' => {type: 'enabled', budget_tokens: 8_000}.freeze,
           'high' => {type: 'enabled', budget_tokens: 16_000}.freeze

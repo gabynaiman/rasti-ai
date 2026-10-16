@@ -127,6 +127,21 @@ describe Rasti::AI::OpenAI::Assistant do
       assert_equal answer, response
     end
 
+    it 'Thinking none' do
+      body = read_json_resource('open_ai/basic_request.json', model: Rasti::AI.openai_default_model, prompt: question)
+      body['reasoning_effort'] = 'none'
+
+      stub_request(:post, api_url)
+        .with(body: JSON.dump(body))
+        .to_return(body: read_resource('open_ai/basic_response.json', content: answer))
+
+      assistant = Rasti::AI::OpenAI::Assistant.new thinking: 'none'
+
+      response = assistant.call question
+
+      assert_equal answer, response
+    end
+
     it 'JSON Schema' do
       json_schema = {answer: 'Response answer'}
       json_answer = "{\\\"answer\\\": \\\"#{answer}\\\"}"

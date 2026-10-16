@@ -19,11 +19,11 @@ require 'logger'
 WEATHER_MCP_URL = 'https://gateway.pipeworx.io/weather/mcp'.freeze
 
 PROVIDERS = {
-  'openai'     => {key: 'OPENAI_API_KEY',       klass: -> { Rasti::AI::OpenAI::Assistant }},
-  'gemini'     => {key: 'GEMINI_API_KEY',       klass: -> { Rasti::AI::Gemini::Assistant }},
-  'anthropic'  => {key: 'ANTHROPIC_API_KEY',    klass: -> { Rasti::AI::Anthropic::Assistant }},
-  'openrouter' => {key: 'OPENROUTER_API_KEY',   klass: -> { Rasti::AI::OpenRouter::Assistant }},
-  'huawei_maas'=> {key: 'HUAWEI_MAAS_API_KEY',  klass: -> { Rasti::AI::HuaweiMaaS::Assistant }}
+  'openai' => {key: 'OPENAI_API_KEY', klass: -> { Rasti::AI::OpenAI::Assistant }, thinking: 'none'},
+  'gemini' => {key: 'GEMINI_API_KEY', klass: -> { Rasti::AI::Gemini::Assistant }, thinking: 'none'},
+  'anthropic' => {key: 'ANTHROPIC_API_KEY', klass: -> { Rasti::AI::Anthropic::Assistant }, thinking: 'none'},
+  'openrouter' => {key: 'OPENROUTER_API_KEY', klass: -> { Rasti::AI::OpenRouter::Assistant }, thinking: 'none'},
+  'huawei_maas' => {key: 'HUAWEI_MAAS_API_KEY', klass: -> { Rasti::AI::HuaweiMaaS::Assistant }}
 }.freeze
 
 def build_weather_mcp
@@ -70,7 +70,7 @@ def chat_loop(assistant)
   puts "\nGoodbye!"
 end
 
-def start_assistant(provider, env_key, assistant_klass)
+def start_assistant(provider, env_key, assistant_klass, thinking)
   require 'rasti-ai'
 
   abort "[Error] #{env_key} is not set." unless ENV[env_key]
@@ -81,7 +81,7 @@ def start_assistant(provider, env_key, assistant_klass)
   mcp = build_weather_mcp
   print_banner provider.capitalize, mcp.list_tools.map { |t| t['name'] }
 
-  chat_loop assistant_klass.call.new(mcp_servers: {weather: mcp})
+  chat_loop assistant_klass.call.new(mcp_servers: {weather: mcp}, thinking: thinking)
 end
 
 namespace :assistant do
@@ -89,7 +89,7 @@ namespace :assistant do
   PROVIDERS.each do |provider, config|
     desc "Chat with #{provider.capitalize} assistant using Pipeworx weather MCP (requires #{config[:key]})"
     task provider.to_sym do
-      start_assistant(provider, config[:key], config[:klass])
+      start_assistant(provider, config[:key], config[:klass], config[:thinking])
     end
   end
 

@@ -6,7 +6,7 @@ module Rasti
 
       attr_reader :state, :model, :thinking
 
-      VALID_THINKING_LEVELS = %w[low medium high].freeze
+      VALID_THINKING_LEVELS = %w[none low medium high].freeze
 
       def initialize(client:nil, provider:nil, json_schema:nil, state:nil, model:nil, thinking:nil, tools:[], mcp_servers:{}, logger:nil)
         raise ArgumentError, "Invalid thinking level '#{thinking}'. Valid: #{VALID_THINKING_LEVELS.join(', ')}" if thinking && !VALID_THINKING_LEVELS.include?(thinking)

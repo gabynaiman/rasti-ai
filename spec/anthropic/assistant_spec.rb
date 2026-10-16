@@ -135,6 +135,20 @@ describe Rasti::AI::Anthropic::Assistant do
       assert_equal answer, response
     end
 
+    it 'Thinking none' do
+      body = read_json_resource('anthropic/basic_request.json', model: Rasti::AI.anthropic_default_model, prompt: question)
+
+      stub_request(:post, api_url)
+        .with(body: JSON.dump(body))
+        .to_return(body: read_resource('anthropic/basic_response.json', content: answer))
+
+      assistant = Rasti::AI::Anthropic::Assistant.new thinking: 'none'
+
+      response = assistant.call question
+
+      assert_equal answer, response
+    end
+
     it 'JSON Schema' do
       json_schema = {'answer' => 'Response answer'}
 

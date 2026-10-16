@@ -58,6 +58,21 @@ describe Rasti::AI::Anthropic::Provider do
     assert_equal answer, result.content
   end
 
+  it 'Generate text with thinking none' do
+    stub_messages model: Rasti::AI.anthropic_default_model,
+                  max_tokens: 4096,
+                  messages: [
+                    {
+                      role: 'user',
+                      content: question
+                    }
+                  ]
+
+    result = provider.generate_text prompt: question, thinking: 'none'
+
+    assert_equal answer, result.content
+  end
+
   it 'Generate text with json schema' do
     json_schema = {player: 'string'}
 

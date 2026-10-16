@@ -37,7 +37,7 @@ module Rasti
         end
 
         def thinking_config
-          thinking
+          Provider::THINKING_LEVELS[thinking]
         end
 
         def parse_tool_calls(response)

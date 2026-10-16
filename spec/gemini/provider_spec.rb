@@ -87,4 +87,18 @@ describe Rasti::AI::Gemini::Provider do
     assert_equal answer, provider.generate_text(prompt: question, json_schema: json_schema, thinking: 'medium').content
   end
 
+  it 'Generate text with thinking none' do
+    stub_generate_content contents: [
+                            {
+                              role: 'user',
+                              parts: [{text: question}]
+                            }
+                          ],
+                          generation_config: {
+                            thinking_config: {thinking_budget: 0}
+                          }
+
+    assert_equal answer, provider.generate_text(prompt: question, thinking: 'none').content
+  end
+
 end

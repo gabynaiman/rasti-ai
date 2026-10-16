@@ -272,10 +272,11 @@ Thinking is inherited too: `reasoning_effort` is passed through as-is (same as O
 
 ## Thinking levels
 
-The base `Assistant` accepts `thinking: 'low' | 'medium' | 'high'` (validated on construction; nil = disabled). Each provider translates it in a private `thinking_config` method and passes the result to the client. The client includes it in the request body only if present.
+The base `Assistant` accepts `thinking: 'none' | 'low' | 'medium' | 'high'` (validated on construction). `nil` means the gem sends nothing and the model uses its own default — which for reasoning models (e.g. `gpt-6-luna`, `gemini-2.5-flash`, Huawei's DeepSeek/GLM) means reasoning *on*. `'none'` explicitly asks the provider to disable reasoning. Each provider translates it in a private `thinking_config` method and passes the result to the client. The client includes it in the request body only if present.
 
 | Level | OpenAI `reasoning_effort` | Anthropic `budget_tokens` | Gemini `thinking_budget` |
 |---|---|---|---|
+| `'none'` | `'none'` | _(field omitted)_ | `0` |
 | `'low'` | `'low'` | `1_024` | `1_024` |
 | `'medium'` | `'medium'` | `8_000` | `8_192` |
 | `'high'` | `'high'` | `16_000` | `24_576` |
@@ -284,7 +285,11 @@ The `THINKING_LEVELS` table lives in each **`Provider`** class (it's provider me
 
 For Gemini, `thinking_config` goes inside `generation_config` — the client doesn't need a new param. For OpenAI and Anthropic, it's a separate top-level param in the client method (`reasoning_effort:` and `thinking:` respectively).
 
-OpenRouter and Huawei MaaS inherit OpenAI's behavior: `thinking` is passed through as `reasoning_effort` with the same string values (`'low'`/`'medium'`/`'high'`). No `thinking_config` override is needed. Note that Huawei's models typically accept only `'high'` and `'max'` — `'high'` is the safe choice, and `'max'` is not expressible through the gem's universal levels.
+OpenRouter and Huawei MaaS inherit OpenAI's behavior: `thinking` is passed through as `reasoning_effort` with the same string values (`'low'`/`'medium'`/`'high'`). No `thinking_config` override is needed. Huawei MaaS rejects `reasoning_effort: 'none'` with a 400 (`deepseek-v4-flash` accepts `low|medium|high|xhigh|max`, `glm-5.3` only `low|high|max`), so `thinking: 'none'` fails there by design. Disabling reasoning on Huawei needs `thinking: {type: 'disabled'}` instead (works on DeepSeek and GLM ≤ 5.2, rejected by `glm-5.3`); the gem does not send it.
+
+`'none'` matters for `gpt-6-luna`: it reasons by default and rejects function tools on `/v1/chat/completions` unless `reasoning_effort: 'none'` is sent. Combining reasoning with tools there requires `/v1/responses`, which the gem does not support.
+
+Gemini's `thinking_budget: 0` is rejected by models that cannot turn reasoning off (e.g. `gemini-2.5-pro`).
 
 The loop does not change. Anthropic thinking blocks (`type: 'thinking'`) in responses are ignored by `parse_content` (looks for `type == 'text'`) and preserved automatically by `build_assistant_tool_calls_message` (passes full `response['content']` array).
 
@@ -315,9 +320,11 @@ Add an entry to the `PROVIDERS` table in `tasks/assistant.rake` so the interacti
 ```ruby
 PROVIDERS = {
   # existing providers ...
-  '<provider>' => {key: '<PROVIDER>_API_KEY', klass: -> { Rasti::AI::<Provider>::Assistant }}
+  '<provider>' => {key: '<PROVIDER>_API_KEY', klass: -> { Rasti::AI::<Provider>::Assistant }, thinking: 'none'}
 }.freeze
 ```
+
+`thinking:` is optional and passed as-is to the assistant. All providers use `'none'` except `huawei_maas`, which rejects it (see [Thinking levels](#thinking-levels)).
 
 The task name, description, env-key check, logger path and banner are all derived automatically from this entry.
 
@@ -392,7 +399,7 @@ All string constants use `.freeze`. Integer and array/hash literals that are alr
 USER = 'user'.freeze
 ASSISTANT = 'assistant'.freeze
 
-VALID_THINKING_LEVELS = %w[low medium high].freeze
+VALID_THINKING_LEVELS = %w[none low medium high].freeze
 
 THINKING_LEVELS = {
   'low' => {thinking_budget: 1_024}.freeze,

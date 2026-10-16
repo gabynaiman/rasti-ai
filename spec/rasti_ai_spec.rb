@@ -203,7 +203,7 @@ describe Rasti::AI do
         Rasti::AI.provider(:open_ai).generate_text prompt: question, thinking: 'invalid'
       end
 
-      assert_equal "Invalid thinking level 'invalid'. Valid: low, medium, high", error.message
+      assert_equal "Invalid thinking level 'invalid'. Valid: none, low, medium, high", error.message
     end
 
   end
